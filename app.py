@@ -227,25 +227,31 @@ def parse_ocr_data(text):
     date = None
     name = None
     
+    # Debug: Log the raw OCR text
+    print(f"OCR Debug - Raw text length: {len(text)}")
+    print(f"OCR Debug - First 200 chars: {text[:200]}")
+    
     # Common patterns for Venmo/Zelle receipts
     for line in lines:
         line = line.strip()
         
-        # Look for amount patterns
+        # Look for amount patterns - enhanced for Venmo
         if '$' in line:
             try:
-                # Handle various amount formats: $14, -$14, $14.00, etc.
-                amount_match = re.search(r'[\-\+]?\$?(\d+\.?\d*)', line)
+                # Handle Venmo's "- $14" format and other variations
+                amount_match = re.search(r'[\-\+]?\s*\$?\s*(\d+\.?\d*)', line)
                 if amount_match:
                     amount = float(amount_match.group(1))
+                    print(f"OCR Debug - Found amount: {amount} in line: {line}")
             except:
                 pass
         
-        # Look for date patterns (Venmo format: "January 28, 2025, 7:16 PM")
+        # Look for date patterns - enhanced for Venmo format
         date_patterns = [
             r'(\w+ \d{1,2}, \d{4})',  # January 28, 2025
             r'(\d{1,2}/\d{1,2}/\d{4})',  # 01/28/2025
             r'(\d{4}-\d{2}-\d{2})',  # 2025-01-28
+            r'(\w+ \d{1,2}, \d{4}, \d{1,2}:\d{2} [AP]M)',  # January 28, 2025, 7:16 PM
         ]
         
         for pattern in date_patterns:
@@ -253,10 +259,14 @@ def parse_ocr_data(text):
             if date_match:
                 try:
                     date_str = date_match.group(1)
-                    # Try different date formats
-                    for fmt in ['%B %d, %Y', '%m/%d/%Y', '%Y-%m-%d']:
+                    for fmt in ['%B %d, %Y', '%m/%d/%Y', '%Y-%m-%d', '%B %d, %Y, %I:%M %p']:
                         try:
-                            date = datetime.strptime(date_str, fmt).date()
+                            if fmt == '%B %d, %Y, %I:%M %p':
+                                # For datetime format, extract just the date part
+                                date = datetime.strptime(date_str, fmt).date()
+                            else:
+                                date = datetime.strptime(date_str, fmt).date()
+                            print(f"OCR Debug - Found date: {date} in line: {line}")
                             break
                         except:
                             continue
@@ -265,39 +275,44 @@ def parse_ocr_data(text):
                 except:
                     pass
         
-        # Look for payer name patterns
-        # Venmo often shows: "Sohail Hossain" or "sohail.hossain257@gmail.com"
+        # Look for payer name patterns - enhanced for Venmo
         if not name and len(line) > 2 and len(line) < 100:
-            # Look for email patterns
+            # Check for email format
             if '@' in line and '.' in line:
-                # Extract name from email (before @)
                 email_name = line.split('@')[0]
                 if '.' in email_name:
-                    # Convert email format to name: sohail.hossain -> Sohail Hossain
                     name_parts = email_name.split('.')
                     name = ' '.join(part.capitalize() for part in name_parts)
                 else:
                     name = email_name.capitalize()
-            # Look for proper name patterns (First Last)
+                print(f"OCR Debug - Found name from email: {name} in line: {line}")
+            # Check for full name format
             elif ' ' in line and not any(char.isdigit() for char in line):
-                name = line
+                # Skip common non-name words
+                skip_words = ['complete', 'status', 'payment', 'transaction', 'details', 'depsi', 'utd', 'beta', 'chapter']
+                if not any(word in line.lower() for word in skip_words):
+                    name = line
+                    print(f"OCR Debug - Found name: {name} in line: {line}")
     
-    # If we still don't have a name, look for any line that looks like a name
+    # Fallback name search
     if not name:
         for line in lines:
             line = line.strip()
-            if (len(line) > 3 and len(line) < 50 and 
-                ' ' in line and 
+            if (len(line) > 3 and len(line) < 50 and
+                ' ' in line and
                 not any(char.isdigit() for char in line) and
-                not line.lower() in ['complete', 'status', 'payment', 'transaction', 'details']):
+                not line.lower() in ['complete', 'status', 'payment', 'transaction', 'details', 'depsi', 'utd']):
                 name = line
+                print(f"OCR Debug - Found name (fallback): {name} in line: {line}")
                 break
     
-    return {
+    result = {
         'amount': amount,
         'date': date,
         'name': name
     }
+    print(f"OCR Debug - Final parsed data: {result}")
+    return result
 
 def match_transaction(order_id):
     """Match order with imported transactions"""
