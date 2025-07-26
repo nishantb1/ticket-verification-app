@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics - ΔΕΨ Ticket Verifier{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2><i class="fas fa-chart-bar me-2"></i>Analytics Dashboard</h2>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h4 class="card-title">{{ total_orders }}</h4>
+                    <p class="card-text">Total Orders</p>
+                </div>
+                <div class="align-self-center">
+                    <i class="fas fa-ticket-alt fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h4 class="card-title">{{ "%.1f"|format(auto_verified_pct) }}%</h4>
+                    <p class="card-text">Auto-Verified</p>
+                </div>
+                <div class="align-self-center">
+                    <i class="fas fa-check-circle fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h4 class="card-title">{{ "%.1f"|format(flagged_pct) }}%</h4>
+                    <p class="card-text">Flagged</p>
+                </div>
+                <div class="align-self-center">
+                    <i class="fas fa-exclamation-triangle fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stats-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h4 class="card-title">{{ status_breakdown.Completed or 0 }}</h4>
+                    <p class="card-text">Completed</p>
+                </div>
+                <div class="align-self-center">
+                    <i class="fas fa-check-double fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="chart-container">
+            <h5 class="card-title mb-3">Order Status Distribution</h5>
+            <canvas id="statusChart" width="400" height="300"></canvas>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="chart-container">
+            <h5 class="card-title mb-3">Daily Order Volume (Last 7 Days)</h5>
+            <canvas id="volumeChart" width="400" height="300"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Status Breakdown Table -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Order Status Breakdown</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Count</th>
+                            <th>Percentage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for status, count in status_breakdown.items() %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-{{ 'warning' if status == 'Pending' else 'success' if status == 'Verified' else 'danger' if status == 'Flagged' else 'info' }}">
+                                    {{ status }}
+                                </span>
+                            </td>
+                            <td>{{ count }}</td>
+                            <td>
+                                {{ "%.1f"|format((count / total_orders * 100) if total_orders > 0 else 0) }}%
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Verification Performance</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center mb-3">
+                    <div class="col-6">
+                        <div class="border-end">
+                            <h3 class="text-success">{{ status_breakdown.Verified or 0 }}</h3>
+                            <p class="text-muted">Auto-Verified</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <h3 class="text-danger">{{ status_breakdown.Flagged or 0 }}</h3>
+                        <p class="text-muted">Manual Review</p>
+                    </div>
+                </div>
+                <div class="progress mb-2">
+                    <div class="progress-bar bg-success" style="width: {{ auto_verified_pct }}%"></div>
+                    <div class="progress-bar bg-danger" style="width: {{ flagged_pct }}%"></div>
+                </div>
+                <small class="text-muted">
+                    {{ "%.1f"|format(auto_verified_pct) }}% automated, {{ "%.1f"|format(flagged_pct) }}% manual review
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Daily Volume Table -->
+<div class="row">
+    <div class="col">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Daily Order Volume (Last 7 Days)</h5>
+            </div>
+            <div class="card-body">
+                {% if daily_volume %}
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Orders</th>
+                            <th>Volume</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for date, count in daily_volume.items() %}
+                        {% set max_count = daily_volume.values() | max %}
+                        {% set percentage = (count / max_count * 100) if max_count > 0 else 0 %}
+                        <tr>
+                            <td>{{ date }}</td>
+                            <td>{{ count }}</td>
+                            <td>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar" style="width: {{ percentage }}%; background: linear-gradient(135deg, #000080 0%, #4169E1 100%);"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-chart-line fa-3x mb-3"></i>
+                    <p>No order data available for the last 7 days</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Status Distribution Chart
+const statusCtx = document.getElementById('statusChart').getContext('2d');
+const statusChart = new Chart(statusCtx, {
+    type: 'pie',
+    data: {
+        labels: [{% for status, count in status_breakdown.items() %}'{{ status }}'{% if not loop.last %}, {% endif %}{% endfor %}],
+        datasets: [{
+            data: [{% for status, count in status_breakdown.items() %}{{ count }}{% if not loop.last %}, {% endif %}{% endfor %}],
+            backgroundColor: [
+                '#FFD700', // Gold for Pending
+                '#28a745', // Green for Verified
+                '#dc3545', // Red for Flagged
+                '#17a2b8'  // Blue for Completed
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+
+// Daily Volume Chart
+const volumeCtx = document.getElementById('volumeChart').getContext('2d');
+const volumeChart = new Chart(volumeCtx, {
+    type: 'bar',
+    data: {
+        labels: [{% for date, count in daily_volume.items() %}'{{ date }}'{% if not loop.last %}, {% endif %}{% endfor %}],
+        datasets: [{
+            label: 'Orders',
+            data: [{% for date, count in daily_volume.items() %}{{ count }}{% if not loop.last %}, {% endif %}{% endfor %}],
+            backgroundColor: '#000080',
+            borderColor: '#4169E1',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+</script>
+{% endblock %} 

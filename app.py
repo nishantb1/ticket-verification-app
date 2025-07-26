@@ -1,0 +1,1033 @@
+import os
+import uuid
+import sqlite3
+import re
+from datetime import datetime, timedelta
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, make_response, session
+from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+import pytesseract
+from PIL import Image
+import pdf2image
+import csv
+import io
+import tempfile
+from functools import wraps
+
+app = Flask(__name__)
+app.secret_key = 'your-secret-key-change-this-in-production'
+
+# Configuration
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# Ensure upload folder exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def login_required(f):
+    """Decorator to require admin login"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'admin_logged_in' not in session:
+            flash('Please log in to access this page.', 'error')
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+def init_db():
+    """Initialize the database with tables"""
+    conn = sqlite3.connect('tickets.db')
+    cursor = conn.cursor()
+    
+    # Create Admin Users table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admin_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            role TEXT DEFAULT 'admin',
+            is_active BOOLEAN DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_login TIMESTAMP
+        )
+    ''')
+    
+    # Create Wave table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS wave (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            start_date DATE NOT NULL,
+            end_date DATE NOT NULL,
+            price_boy REAL NOT NULL,
+            price_girl REAL NOT NULL
+        )
+    ''')
+    
+    # Create Order table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS order_table (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uuid TEXT UNIQUE NOT NULL,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL,
+            referral TEXT,
+            boys_count INTEGER NOT NULL,
+            girls_count INTEGER NOT NULL,
+            wave_id INTEGER,
+            expected_amount REAL NOT NULL,
+            ocr_amount REAL,
+            ocr_date DATE,
+            ocr_name TEXT,
+            status TEXT DEFAULT 'Pending',
+            receipt_path TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (wave_id) REFERENCES wave (id)
+        )
+    ''')
+    
+    # Create Transaction table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS payment_transaction (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date DATE NOT NULL,
+            amount REAL NOT NULL,
+            payer_identifier TEXT NOT NULL,
+            imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+
+    
+    # Create Audit Log table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_user_id INTEGER,
+            action TEXT NOT NULL,
+            details TEXT,
+            ip_address TEXT,
+            user_agent TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (admin_user_id) REFERENCES admin_users (id)
+        )
+    ''')
+    
+    # Insert default admin user if none exists
+    cursor.execute('SELECT COUNT(*) FROM admin_users')
+    if cursor.fetchone()[0] == 0:
+        default_password = generate_password_hash('admin123')
+        cursor.execute('''
+            INSERT INTO admin_users (username, email, password_hash, role)
+            VALUES (?, ?, ?, ?)
+        ''', ('admin', 'admin@depsi.com', default_password, 'super_admin'))
+    
+    # Insert default waves if they don't exist
+    cursor.execute('SELECT COUNT(*) FROM wave')
+    if cursor.fetchone()[0] == 0:
+        waves = [
+            ('Wave 1', '2024-01-01', '2024-01-31', 25.00, 20.00),
+            ('Wave 2', '2024-02-01', '2024-02-29', 30.00, 25.00),
+            ('Wave 3', '2024-03-01', '2024-03-31', 35.00, 30.00)
+        ]
+        cursor.executemany('INSERT INTO wave (name, start_date, end_date, price_boy, price_girl) VALUES (?, ?, ?, ?, ?)', waves)
+    
+    conn.commit()
+    conn.close()
+
+def get_current_wave():
+    """Get the current wave based on date"""
+    conn = sqlite3.connect('tickets.db')
+    cursor = conn.cursor()
+    today = datetime.now().date()
+    
+    cursor.execute('''
+        SELECT id, name, price_boy, price_girl 
+        FROM wave 
+        WHERE start_date <= ? AND end_date >= ?
+    ''', (today, today))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result:
+        return {
+            'id': result[0],
+            'name': result[1],
+            'price_boy': result[2],
+            'price_girl': result[3]
+        }
+    return None
+
+def get_all_waves():
+    """Get all waves for selection"""
+    conn = sqlite3.connect('tickets.db')
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT id, name, start_date, end_date, price_boy, price_girl FROM wave ORDER BY start_date')
+    waves = cursor.fetchall()
+    conn.close()
+    
+    return [{
+        'id': wave[0],
+        'name': wave[1],
+        'start_date': wave[2],
+        'end_date': wave[3],
+        'price_boy': wave[4],
+        'price_girl': wave[5]
+    } for wave in waves]
+
+def log_audit_action(action, details=None):
+    """Log admin actions for audit trail"""
+    try:
+        admin_user_id = session.get('admin_user_id')
+        conn = sqlite3.connect('tickets.db')
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO audit_log (admin_user_id, action, details, ip_address, user_agent)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (admin_user_id, action, details, request.remote_addr, request.headers.get('User-Agent')))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Audit logging error: {e}")
+
+def extract_text_from_image(image_path):
+    """Extract text from image using OCR"""
+    try:
+        image = Image.open(image_path)
+        text = pytesseract.image_to_string(image)
+        return text
+    except Exception as e:
+        print(f"OCR Error: {e}")
+        return ""
+
+def extract_text_from_pdf(pdf_path):
+    """Extract text from PDF using OCR"""
+    try:
+        images = pdf2image.convert_from_path(pdf_path)
+        text = ""
+        for image in images:
+            text += pytesseract.image_to_string(image) + "\n"
+        return text
+    except Exception as e:
+        print(f"PDF OCR Error: {e}")
+        return ""
+
+def parse_ocr_data(text):
+    """Parse OCR text to extract amount, date, and payer name"""
+    lines = text.split('\n')
+    amount = None
+    date = None
+    name = None
+    
+    # Common patterns for Venmo/Zelle receipts
+    for line in lines:
+        line = line.strip()
+        
+        # Look for amount patterns
+        if '$' in line:
+            try:
+                # Handle various amount formats: $14, -$14, $14.00, etc.
+                amount_match = re.search(r'[\-\+]?\$?(\d+\.?\d*)', line)
+                if amount_match:
+                    amount = float(amount_match.group(1))
+            except:
+                pass
+        
+        # Look for date patterns (Venmo format: "January 28, 2025, 7:16 PM")
+        date_patterns = [
+            r'(\w+ \d{1,2}, \d{4})',  # January 28, 2025
+            r'(\d{1,2}/\d{1,2}/\d{4})',  # 01/28/2025
+            r'(\d{4}-\d{2}-\d{2})',  # 2025-01-28
+        ]
+        
+        for pattern in date_patterns:
+            date_match = re.search(pattern, line)
+            if date_match:
+                try:
+                    date_str = date_match.group(1)
+                    # Try different date formats
+                    for fmt in ['%B %d, %Y', '%m/%d/%Y', '%Y-%m-%d']:
+                        try:
+                            date = datetime.strptime(date_str, fmt).date()
+                            break
+                        except:
+                            continue
+                    if date:
+                        break
+                except:
+                    pass
+        
+        # Look for payer name patterns
+        # Venmo often shows: "Sohail Hossain" or "sohail.hossain257@gmail.com"
+        if not name and len(line) > 2 and len(line) < 100:
+            # Look for email patterns
+            if '@' in line and '.' in line:
+                # Extract name from email (before @)
+                email_name = line.split('@')[0]
+                if '.' in email_name:
+                    # Convert email format to name: sohail.hossain -> Sohail Hossain
+                    name_parts = email_name.split('.')
+                    name = ' '.join(part.capitalize() for part in name_parts)
+                else:
+                    name = email_name.capitalize()
+            # Look for proper name patterns (First Last)
+            elif ' ' in line and not any(char.isdigit() for char in line):
+                name = line
+    
+    # If we still don't have a name, look for any line that looks like a name
+    if not name:
+        for line in lines:
+            line = line.strip()
+            if (len(line) > 3 and len(line) < 50 and 
+                ' ' in line and 
+                not any(char.isdigit() for char in line) and
+                not line.lower() in ['complete', 'status', 'payment', 'transaction', 'details']):
+                name = line
+                break
+    
+    return {
+        'amount': amount,
+        'date': date,
+        'name': name
+    }
+
+def match_transaction(order_id):
+    """Match order with imported transactions"""
+    conn = sqlite3.connect('tickets.db')
+    cursor = conn.cursor()
+    
+    # Get order details
+    cursor.execute('''
+        SELECT expected_amount, ocr_amount, ocr_date, ocr_name
+        FROM order_table WHERE id = ?
+    ''', (order_id,))
+    
+    order = cursor.fetchone()
+    if not order:
+        conn.close()
+        return False
+    
+    expected_amount, ocr_amount, ocr_date, ocr_name = order
+    
+    if not ocr_amount or not ocr_date:
+        conn.close()
+        return False
+    
+    # Look for matching transaction
+    cursor.execute('''
+        SELECT id FROM payment_transaction 
+        WHERE amount = ? 
+        AND date BETWEEN ? AND ?
+    ''', (ocr_amount, ocr_date - timedelta(days=1), ocr_date + timedelta(days=1)))
+    
+    match = cursor.fetchone()
+    
+    # Update order status
+    if match:
+        cursor.execute('UPDATE order_table SET status = ? WHERE id = ?', ('Verified', order_id))
+    else:
+        cursor.execute('UPDATE order_table SET status = ? WHERE id = ?', ('Flagged', order_id))
+    
+    conn.commit()
+    conn.close()
+    return bool(match)
+
+
+
+def detect_csv_format(csv_content):
+    """Detect whether CSV is Chase or Venmo format"""
+    lines = csv_content.split('\n')
+    if not lines:
+        return 'unknown'
+    
+    # Check first few lines for format indicators
+    header_line = lines[0].lower()
+    
+    # Chase format indicators
+    if any(indicator in header_line for indicator in ['details', 'posting date', 'description', 'amount', 'type', 'balance']):
+        return 'chase'
+    
+    # Venmo format indicators (common Venmo CSV headers)
+    if any(indicator in header_line for indicator in ['datetime', 'type', 'note', 'from', 'to', 'amount', 'fee', 'net', 'status']):
+        return 'venmo'
+    
+    # If we can't detect from header, try to infer from data structure
+    if len(lines) > 1:
+        first_data_line = lines[1]
+        parts = first_data_line.split(',')
+        
+        # Chase typically has more columns and specific date format
+        if len(parts) >= 6 and any('/' in part for part in parts):
+            return 'chase'
+        
+        # Venmo typically has fewer columns and different date format
+        if len(parts) <= 8:
+            return 'venmo'
+    
+    return 'unknown'
+
+def parse_chase_csv(csv_content):
+    """Parse Chase CSV format specifically"""
+    transactions = []
+    
+    # Skip header row
+    lines = csv_content.split('\n')[1:]
+    
+    for line in lines:
+        if not line.strip():
+            continue
+            
+        # Parse Chase CSV format: Details,Posting Date,Description,Amount,Type,Balance,Check or Slip #
+        parts = line.split(',')
+        if len(parts) >= 4:
+            try:
+                # Extract date (format: 3/6/25)
+                date_str = parts[1].strip()
+                if date_str:
+                    # Convert to YYYY-MM-DD format
+                    date_parts = date_str.split('/')
+                    if len(date_parts) == 3:
+                        month, day, year = date_parts
+                        year = '20' + year if len(year) == 2 else year
+                        date = f"{year}-{month.zfill(2)}-{day.zfill(2)}"
+                    else:
+                        continue
+                else:
+                    continue
+                
+                # Extract amount (remove any currency symbols and convert to float)
+                amount_str = parts[3].strip()
+                amount = float(amount_str.replace('$', '').replace(',', ''))
+                
+                # Extract payer name from description
+                description = parts[2].strip()
+                
+                # Parse Zelle payment descriptions
+                # Format: "ZELLE PAYMENT FROM JOHN DOE" or "Zelle payment from JOHN DOE"
+                payer_match = re.search(r'(?:ZELLE PAYMENT FROM|Zelle payment from)\s+(.+)', description, re.IGNORECASE)
+                if payer_match:
+                    payer_name = payer_match.group(1).strip()
+                else:
+                    # Fallback: use description as payer name
+                    payer_name = description
+                
+                transactions.append({
+                    'date': date,
+                    'amount': amount,
+                    'payer_identifier': payer_name
+                })
+                
+            except (ValueError, IndexError) as e:
+                print(f"Error parsing Chase line: {line}, Error: {e}")
+                continue
+    
+    return transactions
+
+def parse_venmo_csv(csv_content):
+    """Parse Venmo CSV format specifically"""
+    transactions = []
+    
+    # Skip first 3 lines (header rows)
+    lines = csv_content.split('\n')[3:]
+    
+    print(f"Venmo CSV Debug - Processing {len(lines)} data lines")
+    
+    for line in lines:
+        if not line.strip():
+            continue
+            
+        # Parse Venmo CSV format
+        # Actual format: ,ID,Datetime,Type,Status,Note,From,To,Amount (total),...
+        parts = line.split(',')
+        if len(parts) >= 9:
+            try:
+                # Extract date from datetime (format: "2025-03-24T15:50:20")
+                datetime_str = parts[2].strip()  # Datetime is in column 2
+                if datetime_str and 'T' in datetime_str:
+                    # Convert to YYYY-MM-DD format
+                    date = datetime_str.split('T')[0]
+                else:
+                    continue
+                
+                # Extract amount (remove any currency symbols and convert to float)
+                amount_str = parts[8].strip()  # Amount (total) is in column 8
+                if amount_str.startswith('$'):
+                    # Remove $ and any trailing spaces, then convert to float
+                    amount = float(amount_str.replace('$', '').strip())
+                else:
+                    continue
+                
+                # Extract payer name from "From" column (column 6)
+                payer_name = parts[6].strip() if len(parts) > 6 else "Unknown"
+                
+                # Only include incoming payments (positive amounts) and "Payment" type
+                payment_type = parts[3].strip() if len(parts) > 3 else ""
+                if amount > 0 and payment_type == "Payment":
+                    transactions.append({
+                        'date': date,
+                        'amount': amount,
+                        'payer_identifier': payer_name
+                    })
+                    print(f"Venmo CSV Debug - Added transaction: {date}, ${amount}, {payer_name}")
+                
+            except (ValueError, IndexError) as e:
+                print(f"Error parsing Venmo line: {line}, Error: {e}")
+                continue
+    
+    return transactions
+
+def parse_csv_transactions(csv_content):
+    """Universal CSV parser that detects format and parses accordingly"""
+    format_type = detect_csv_format(csv_content)
+    
+    print(f"Detected CSV format: {format_type}")
+    
+    if format_type == 'chase':
+        return parse_chase_csv(csv_content)
+    elif format_type == 'venmo':
+        return parse_venmo_csv(csv_content)
+    else:
+        # Try both parsers and return whichever works
+        chase_transactions = parse_chase_csv(csv_content)
+        venmo_transactions = parse_venmo_csv(csv_content)
+        
+        if chase_transactions and not venmo_transactions:
+            return chase_transactions
+        elif venmo_transactions and not chase_transactions:
+            return venmo_transactions
+        elif chase_transactions and venmo_transactions:
+            # Return the one with more transactions (likely the correct format)
+            return chase_transactions if len(chase_transactions) > len(venmo_transactions) else venmo_transactions
+        else:
+            return []
+
+@app.route('/')
+def index():
+    """Customer intake form"""
+    current_wave = get_current_wave()
+    return render_template('index.html', wave=current_wave)
+
+@app.route('/submit', methods=['POST'])
+def submit_order():
+    """Handle order submission"""
+    try:
+        # Get form data
+        name = request.form['name']
+        email = request.form['email']
+        referral = request.form.get('referral', '')
+        boys_count = int(request.form['boys_count'])
+        girls_count = int(request.form['girls_count'])
+        
+        # Generate UUID
+        order_uuid = str(uuid.uuid4())
+        
+        # Get current wave information
+        current_wave = get_current_wave()
+        if not current_wave:
+            flash('No active wave found. Please contact an administrator.', 'error')
+            return redirect(url_for('index'))
+        
+        price_boy = current_wave['price_boy']
+        price_girl = current_wave['price_girl']
+        wave_id = current_wave['id']
+        
+        # Calculate expected amount
+        expected_amount = (boys_count * price_boy + girls_count * price_girl)
+        
+        # Handle file upload
+        receipt_path = None
+        if 'receipt' in request.files:
+            file = request.files['receipt']
+            if file and allowed_file(file.filename):
+                filename = secure_filename(f"{order_uuid}_{file.filename}")
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                receipt_path = filename  # Store only the filename, not the full path
+                
+                # Perform OCR
+                if filename.lower().endswith('.pdf'):
+                    ocr_text = extract_text_from_pdf(filepath)
+                else:
+                    ocr_text = extract_text_from_image(filepath)
+                
+                # Debug: Log OCR results for troubleshooting
+                print(f"OCR Debug - Raw text: {ocr_text[:200]}...")
+                
+                ocr_data = parse_ocr_data(ocr_text)
+                
+                # Debug: Log parsed data
+                print(f"OCR Debug - Parsed data: {ocr_data}")
+            else:
+                flash('Invalid file type', 'error')
+                return redirect(url_for('index'))
+        else:
+            ocr_data = {'amount': None, 'date': None, 'name': None}
+        
+        # Save to database
+        conn = sqlite3.connect('tickets.db')
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO order_table 
+            (uuid, name, email, referral, boys_count, girls_count, wave_id, 
+             expected_amount, ocr_amount, ocr_date, ocr_name, receipt_path)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (order_uuid, name, email, referral, boys_count, girls_count, 
+              wave_id, expected_amount, ocr_data['amount'], 
+              ocr_data['date'], ocr_data['name'], receipt_path))
+        
+        order_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        # Try to match with transactions
+        if ocr_data['amount'] and ocr_data['date']:
+            match_transaction(order_id)
+        
+        flash(f'Order submitted successfully! Your order ID is: {order_uuid}', 'success')
+        return redirect(url_for('index'))
+        
+    except Exception as e:
+        flash(f'Error submitting order: {str(e)}', 'error')
+        return redirect(url_for('index'))
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    """Admin login page"""
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        
+        conn = sqlite3.connect('tickets.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT id, username, password_hash, role FROM admin_users WHERE username = ? AND is_active = 1', (username,))
+        user = cursor.fetchone()
+        conn.close()
+        
+        if user and check_password_hash(user[2], password):
+            session['admin_logged_in'] = True
+            session['admin_user_id'] = user[0]
+            session['admin_username'] = user[1]
+            session['admin_role'] = user[3]
+            
+            # Update last login
+            conn = sqlite3.connect('tickets.db')
+            cursor = conn.cursor()
+            cursor.execute('UPDATE admin_users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', (user[0],))
+            conn.commit()
+            conn.close()
+            
+            log_audit_action('login', f'Admin {username} logged in')
+            flash('Login successful!', 'success')
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash('Invalid username or password', 'error')
+    
+    return render_template('admin_login.html')
+
+@app.route('/admin/logout')
+def admin_logout():
+    """Admin logout"""
+    if 'admin_username' in session:
+        log_audit_action('logout', f'Admin {session["admin_username"]} logged out')
+    
+    session.clear()
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('admin_login'))
+
+@app.route('/admin/change-password', methods=['GET', 'POST'])
+@login_required
+def admin_change_password():
+    """Change admin password"""
+    if request.method == 'POST':
+        current_password = request.form['current_password']
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+        
+        if new_password != confirm_password:
+            flash('New passwords do not match', 'error')
+            return render_template('admin_change_password.html')
+        
+        if len(new_password) < 8:
+            flash('Password must be at least 8 characters long', 'error')
+            return render_template('admin_change_password.html')
+        
+        conn = sqlite3.connect('tickets.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT password_hash FROM admin_users WHERE id = ?', (session['admin_user_id'],))
+        user = cursor.fetchone()
+        
+        if user and check_password_hash(user[0], current_password):
+            new_password_hash = generate_password_hash(new_password)
+            cursor.execute('UPDATE admin_users SET password_hash = ? WHERE id = ?', (new_password_hash, session['admin_user_id']))
+            conn.commit()
+            conn.close()
+            
+            log_audit_action('change_password', 'Password changed successfully')
+            flash('Password changed successfully!', 'success')
+            return redirect(url_for('admin_dashboard'))
+        else:
+            conn.close()
+            flash('Current password is incorrect', 'error')
+    
+    return render_template('admin_change_password.html')
+
+@app.route('/admin')
+@login_required
+def admin_dashboard():
+    """Admin dashboard with Kanban view"""
+    conn = sqlite3.connect('tickets.db')
+    cursor = conn.cursor()
+    
+    # Get orders grouped by status
+    cursor.execute('''
+        SELECT o.*, w.name as wave_name 
+        FROM order_table o 
+        LEFT JOIN wave w ON o.wave_id = w.id 
+        ORDER BY o.created_at DESC
+    ''')
+    
+    orders = cursor.fetchall()
+    conn.close()
+    
+    # Group by status
+    pending = [order for order in orders if order[12] == 'Pending']
+    verified = [order for order in orders if order[12] == 'Verified']
+    flagged = [order for order in orders if order[12] == 'Flagged']
+    completed = [order for order in orders if order[12] == 'Completed']
+    
+    # Debug logging
+    print(f"Admin Dashboard Debug - Total orders: {len(orders)}")
+    print(f"Admin Dashboard Debug - Pending: {len(pending)}, Verified: {len(verified)}, Flagged: {len(flagged)}, Completed: {len(completed)}")
+    
+    # Create response with cache control headers
+    response = make_response(render_template('admin.html', 
+                         pending=pending, verified=verified, 
+                         flagged=flagged, completed=completed))
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    
+    return response
+
+@app.route('/admin/upload-csv', methods=['POST'])
+@login_required
+def upload_csv():
+    """Handle CSV upload for transactions"""
+    if 'csv_file' not in request.files:
+        flash('No file uploaded', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    file = request.files['csv_file']
+    if file.filename == '':
+        flash('No file selected', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    try:
+        # Read CSV content
+        csv_content = file.read().decode('utf-8')
+        
+        # Debug: Log CSV content for troubleshooting
+        print(f"CSV Debug - First 500 characters: {csv_content[:500]}...")
+        
+        # Parse CSV using universal parser that detects format
+        transactions = parse_csv_transactions(csv_content)
+        
+        # Debug: Log parsing results
+        print(f"CSV Debug - Parsed {len(transactions)} transactions")
+        
+        if not transactions:
+            flash('No valid transactions found in CSV. Please check the file format.', 'error')
+            return redirect(url_for('admin_dashboard'))
+        
+        # Save to database
+        conn = sqlite3.connect('tickets.db')
+        cursor = conn.cursor()
+        
+        for transaction in transactions:
+            cursor.execute('''
+                INSERT OR IGNORE INTO payment_transaction (date, amount, payer_identifier)
+                VALUES (?, ?, ?)
+            ''', (transaction['date'], transaction['amount'], transaction['payer_identifier']))
+        
+        conn.commit()
+        conn.close()
+        
+        log_audit_action('csv_upload', f'Imported {len(transactions)} transactions from CSV')
+        flash(f'Successfully imported {len(transactions)} transactions', 'success')
+        
+    except Exception as e:
+        flash(f'Error uploading CSV: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/approve/<int:order_id>')
+@login_required
+def approve_order(order_id):
+    """Approve order"""
+    try:
+        conn = sqlite3.connect('tickets.db')
+        cursor = conn.cursor()
+        
+        # Check if order exists
+        cursor.execute('SELECT id FROM order_table WHERE id = ?', (order_id,))
+        if not cursor.fetchone():
+            conn.close()
+            flash('Order not found', 'error')
+            return redirect(url_for('admin_dashboard'))
+        
+        # Update status to Completed
+        cursor.execute('UPDATE order_table SET status = ? WHERE id = ?', ('Completed', order_id))
+        
+
+        
+        conn.commit()
+        conn.close()
+        
+        log_audit_action('approve_order', f'Approved order {order_id}')
+        flash('Order approved successfully', 'success')
+        
+    except Exception as e:
+        flash(f'Error approving order: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/reject/<int:order_id>')
+@login_required
+def reject_order(order_id):
+    """Reject order"""
+    try:
+        conn = sqlite3.connect('tickets.db')
+        cursor = conn.cursor()
+        cursor.execute('UPDATE order_table SET status = ? WHERE id = ?', ('Rejected', order_id))
+        conn.commit()
+        conn.close()
+        log_audit_action('reject_order', f'Rejected order {order_id}')
+        flash('Order rejected', 'success')
+    except Exception as e:
+        flash(f'Error rejecting order: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/current-wave')
+@login_required
+def get_current_wave_api():
+    """Get current wave for admin dashboard"""
+    try:
+        current_wave = get_current_wave()
+        return jsonify({'success': True, 'wave': current_wave})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/admin/waves')
+@login_required
+def get_waves():
+    """Get all waves for admin management"""
+    try:
+        waves = get_all_waves()
+        return jsonify({'success': True, 'waves': waves})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/admin/waves/<int:wave_id>')
+@login_required
+def get_wave(wave_id):
+    """Get a specific wave by ID"""
+    try:
+        conn = sqlite3.connect('tickets.db')
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT id, name, start_date, end_date, price_boy, price_girl FROM wave WHERE id = ?', (wave_id,))
+        wave_data = cursor.fetchone()
+        conn.close()
+        
+        if wave_data:
+            wave = {
+                'id': wave_data[0],
+                'name': wave_data[1],
+                'start_date': wave_data[2],
+                'end_date': wave_data[3],
+                'price_boy': wave_data[4],
+                'price_girl': wave_data[5]
+            }
+            return jsonify({'success': True, 'wave': wave})
+        else:
+            return jsonify({'success': False, 'error': 'Wave not found'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/admin/waves', methods=['POST'])
+@login_required
+def create_wave():
+    """Create a new wave"""
+    try:
+        name = request.form['name']
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        price_boy = float(request.form['price_boy'])
+        price_girl = float(request.form['price_girl'])
+        
+        conn = sqlite3.connect('tickets.db')
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO wave (name, start_date, end_date, price_boy, price_girl)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (name, start_date, end_date, price_boy, price_girl))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/admin/waves/<int:wave_id>', methods=['PUT'])
+@login_required
+def update_wave(wave_id):
+    """Update an existing wave"""
+    try:
+        name = request.form['name']
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        price_boy = float(request.form['price_boy'])
+        price_girl = float(request.form['price_girl'])
+        
+        conn = sqlite3.connect('tickets.db')
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE wave 
+            SET name = ?, start_date = ?, end_date = ?, price_boy = ?, price_girl = ?
+            WHERE id = ?
+        ''', (name, start_date, end_date, price_boy, price_girl, wave_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/admin/waves/<int:wave_id>', methods=['DELETE'])
+@login_required
+def delete_wave(wave_id):
+    """Delete a wave"""
+    try:
+        conn = sqlite3.connect('tickets.db')
+        cursor = conn.cursor()
+        
+        # Check if wave is being used by any orders
+        cursor.execute('SELECT COUNT(*) FROM order_table WHERE wave_id = ?', (wave_id,))
+        order_count = cursor.fetchone()[0]
+        
+        if order_count > 0:
+            return jsonify({'success': False, 'error': f'Cannot delete wave: {order_count} orders are using this wave'})
+        
+        cursor.execute('DELETE FROM wave WHERE id = ?', (wave_id,))
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/admin/update-order', methods=['POST'])
+@login_required
+def update_order():
+    """Update order details"""
+    try:
+        order_id = request.form['order_id']
+        boys_count = int(request.form['boys_count'])
+        girls_count = int(request.form['girls_count'])
+        wave_id = int(request.form['wave_id'])
+        
+        conn = sqlite3.connect('tickets.db')
+        cursor = conn.cursor()
+        
+        # Get wave prices
+        cursor.execute('SELECT price_boy, price_girl FROM wave WHERE id = ?', (wave_id,))
+        prices = cursor.fetchone()
+        expected_amount = boys_count * prices[0] + girls_count * prices[1]
+        
+        cursor.execute('''
+            UPDATE order_table 
+            SET boys_count = ?, girls_count = ?, wave_id = ?, expected_amount = ?
+            WHERE id = ?
+        ''', (boys_count, girls_count, wave_id, expected_amount, order_id))
+        
+        conn.commit()
+        conn.close()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/receipt/<path:filename>')
+def serve_receipt(filename):
+    """Serve uploaded receipt files"""
+    try:
+        # Clean the filename (remove any path components)
+        filename = os.path.basename(filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        return send_file(filepath)
+    except FileNotFoundError:
+        return "Receipt not found", 404
+
+@app.route('/analytics')
+@login_required
+def analytics():
+    """Analytics page"""
+    conn = sqlite3.connect('tickets.db')
+    cursor = conn.cursor()
+    
+    # Total orders
+    cursor.execute('SELECT COUNT(*) FROM order_table')
+    total_orders = cursor.fetchone()[0]
+    
+    # Status breakdown
+    cursor.execute('''
+        SELECT status, COUNT(*) 
+        FROM order_table 
+        GROUP BY status
+    ''')
+    status_breakdown = dict(cursor.fetchall())
+    
+    # Auto-verified percentage
+    auto_verified = status_breakdown.get('Verified', 0)
+    auto_verified_pct = (auto_verified / total_orders * 100) if total_orders > 0 else 0
+    
+    # Flagged percentage
+    flagged = status_breakdown.get('Flagged', 0)
+    flagged_pct = (flagged / total_orders * 100) if total_orders > 0 else 0
+    
+    # Daily volume (last 7 days)
+    cursor.execute('''
+        SELECT DATE(created_at), COUNT(*) 
+        FROM order_table 
+        WHERE created_at >= DATE('now', '-7 days')
+        GROUP BY DATE(created_at)
+        ORDER BY DATE(created_at)
+    ''')
+    daily_volume = dict(cursor.fetchall())
+    
+    conn.close()
+    
+    return render_template('analytics.html',
+                         total_orders=total_orders,
+                         status_breakdown=status_breakdown,
+                         auto_verified_pct=auto_verified_pct,
+                         flagged_pct=flagged_pct,
+                         daily_volume=daily_volume)
+
+if __name__ == '__main__':
+    init_db()
+    app.run(debug=True) 
