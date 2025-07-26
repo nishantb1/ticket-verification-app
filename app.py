@@ -761,8 +761,20 @@ def upload_csv():
         conn.commit()
         conn.close()
         
-        log_audit_action('csv_upload', f'Imported {len(transactions)} transactions from CSV')
-        flash(f'Successfully imported {len(transactions)} transactions', 'success')
+        # Re-run matching for all pending orders
+        conn = sqlite3.connect('tickets.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM order_table WHERE status = "Pending" AND ocr_amount IS NOT NULL AND ocr_date IS NOT NULL')
+        pending_orders = cursor.fetchall()
+        conn.close()
+        
+        matched_count = 0
+        for order in pending_orders:
+            if match_transaction(order[0]):
+                matched_count += 1
+        
+        log_audit_action('csv_upload', f'Imported {len(transactions)} transactions from CSV, matched {matched_count} pending orders')
+        flash(f'Successfully imported {len(transactions)} transactions and matched {matched_count} pending orders', 'success')
         
     except Exception as e:
         flash(f'Error uploading CSV: {str(e)}', 'error')
@@ -814,6 +826,30 @@ def reject_order(order_id):
         flash('Order rejected', 'success')
     except Exception as e:
         flash(f'Error rejecting order: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/rerun-matching')
+@login_required
+def rerun_matching():
+    """Re-run matching for all pending orders"""
+    try:
+        conn = sqlite3.connect('tickets.db')
+        cursor = conn.cursor()
+        cursor.execute('SELECT id FROM order_table WHERE status = "Pending" AND ocr_amount IS NOT NULL AND ocr_date IS NOT NULL')
+        pending_orders = cursor.fetchall()
+        conn.close()
+        
+        matched_count = 0
+        for order in pending_orders:
+            if match_transaction(order[0]):
+                matched_count += 1
+        
+        log_audit_action('rerun_matching', f'Re-ran matching for {len(pending_orders)} pending orders, matched {matched_count}')
+        flash(f'Re-ran matching for {len(pending_orders)} pending orders. {matched_count} orders were automatically verified.', 'success')
+        
+    except Exception as e:
+        flash(f'Error re-running matching: {str(e)}', 'error')
     
     return redirect(url_for('admin_dashboard'))
 
