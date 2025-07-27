@@ -10,13 +10,13 @@
                 <h3 class="card-title mb-0">
                     <i class="fas fa-ticket-alt me-2"></i>Submit Your Order
                 </h3>
-                <p class="mb-0 mt-2 fraternity-motto">"Building Leaders, Building Brotherhood"</p>
+
             </div>
             <div class="card-body">
                 {% if wave %}
                 <div class="alert alert-info">
                     <strong><span class="greek-letters">ΔΕΨ</span> Current Wave:</strong> {{ wave.name }} 
-                    (Brothers: ${{ "%.2f"|format(wave.price_boy) }}, Sisters: ${{ "%.2f"|format(wave.price_girl) }})
+                    (Guys: ${{ "%.2f"|format(wave.price_boy) }}, Girls: ${{ "%.2f"|format(wave.price_girl) }})
                     <br>
                     <small class="text-muted">Valid until: {{ wave.end_date }}</small>
                 </div>
@@ -73,8 +73,8 @@
                             <span id="total-amount">$0.00</span>
                             <br>
                             <small class="text-muted">
-                                Brothers: <span id="boys-total">$0.00</span> | 
-                                Sisters: <span id="girls-total">$0.00</span>
+                                Guys: <span id="boys-total">$0.00</span> | 
+                                Girls: <span id="girls-total">$0.00</span>
                             </small>
                         </div>
                     </div>
