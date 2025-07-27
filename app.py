@@ -627,7 +627,7 @@ def admin_login():
         username = request.form['username']
         password = request.form['password']
         
-        conn = sqlite3.connect('tickets.db')
+        conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         cursor.execute('SELECT id, username, password_hash, role FROM admin_users WHERE username = ? AND is_active = 1', (username,))
         user = cursor.fetchone()
@@ -640,7 +640,7 @@ def admin_login():
             session['admin_role'] = user[3]
             
             # Update last login
-            conn = sqlite3.connect('tickets.db')
+            conn = sqlite3.connect(get_db_path())
             cursor = conn.cursor()
             cursor.execute('UPDATE admin_users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', (user[0],))
             conn.commit()
@@ -681,7 +681,7 @@ def admin_change_password():
             flash('Password must be at least 8 characters long', 'error')
             return render_template('admin_change_password.html')
         
-        conn = sqlite3.connect('tickets.db')
+        conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         cursor.execute('SELECT password_hash FROM admin_users WHERE id = ?', (session['admin_user_id'],))
         user = cursor.fetchone()
@@ -705,7 +705,7 @@ def admin_change_password():
 @login_required
 def admin_dashboard():
     """Admin dashboard with Kanban view"""
-    conn = sqlite3.connect('tickets.db')
+    conn = sqlite3.connect(get_db_path())
     cursor = conn.cursor()
     
     # Get orders grouped by status
