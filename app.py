@@ -13,6 +13,8 @@ import csv
 import io
 import tempfile
 from functools import wraps
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this-in-production'
@@ -203,6 +205,94 @@ def log_audit_action(action, details=None):
         conn.close()
     except Exception as e:
         print(f"Audit logging error: {e}")
+
+def export_orders_to_excel():
+    """Export all orders to Excel spreadsheet"""
+    try:
+        conn = sqlite3.connect(get_db_path())
+        cursor = conn.cursor()
+        
+        # Get all orders with wave information
+        cursor.execute('''
+            SELECT 
+                o.id, o.uuid, o.name, o.email, o.referral, 
+                o.boys_count, o.girls_count, o.expected_amount,
+                o.ocr_amount, o.ocr_date, o.ocr_name, o.status,
+                o.created_at, w.name as wave_name, w.price_boy, w.price_girl
+            FROM order_table o
+            LEFT JOIN wave w ON o.wave_id = w.id
+            ORDER BY o.created_at DESC
+        ''')
+        orders = cursor.fetchall()
+        conn.close()
+        
+        # Create Excel workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Customer Orders"
+        
+        # Define headers
+        headers = [
+            'Order ID', 'UUID', 'Customer Name', 'Email', 'Referral Code',
+            'Boys Tickets', 'Girls Tickets', 'Expected Amount', 'OCR Amount',
+            'OCR Date', 'OCR Payer Name', 'Status', 'Created Date',
+            'Wave Name', 'Wave Price (Boys)', 'Wave Price (Girls)'
+        ]
+        
+        # Style for headers
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        header_alignment = Alignment(horizontal="center", vertical="center")
+        
+        # Add headers
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+        
+        # Add data
+        for row, order in enumerate(orders, 2):
+            ws.cell(row=row, column=1, value=order[0])  # Order ID
+            ws.cell(row=row, column=2, value=order[1])  # UUID
+            ws.cell(row=row, column=3, value=order[2])  # Name
+            ws.cell(row=row, column=4, value=order[3])  # Email
+            ws.cell(row=row, column=5, value=order[4] or '')  # Referral
+            ws.cell(row=row, column=6, value=order[5])  # Boys count
+            ws.cell(row=row, column=7, value=order[6])  # Girls count
+            ws.cell(row=row, column=8, value=order[7])  # Expected amount
+            ws.cell(row=row, column=9, value=order[8] or '')  # OCR amount
+            ws.cell(row=row, column=10, value=order[9] or '')  # OCR date
+            ws.cell(row=row, column=11, value=order[10] or '')  # OCR name
+            ws.cell(row=row, column=12, value=order[11])  # Status
+            ws.cell(row=row, column=13, value=order[12])  # Created date
+            ws.cell(row=row, column=14, value=order[13] or '')  # Wave name
+            ws.cell(row=row, column=15, value=order[14] or '')  # Wave price boys
+            ws.cell(row=row, column=16, value=order[15] or '')  # Wave price girls
+        
+        # Auto-adjust column widths
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        # Save to bytes
+        excel_file = io.BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+        
+        return excel_file
+        
+    except Exception as e:
+        print(f"Error exporting to Excel: {e}")
+        return None
 
 def extract_text_from_image(image_path):
     """Extract text from image using OCR"""
@@ -1036,7 +1126,7 @@ def update_order():
         girls_count = int(request.form['girls_count'])
         wave_id = int(request.form['wave_id'])
         
-        conn = sqlite3.connect('tickets.db')
+        conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         
         # Get wave prices
@@ -1072,7 +1162,7 @@ def serve_receipt(filename):
 @login_required
 def analytics():
     """Analytics page"""
-    conn = sqlite3.connect('tickets.db')
+    conn = sqlite3.connect(get_db_path())
     cursor = conn.cursor()
     
     # Total orders
@@ -1113,6 +1203,31 @@ def analytics():
                          auto_verified_pct=auto_verified_pct,
                          flagged_pct=flagged_pct,
                          daily_volume=daily_volume)
+
+@app.route('/admin/export-excel')
+@login_required
+def export_excel():
+    """Export all orders to Excel file"""
+    try:
+        excel_file = export_orders_to_excel()
+        
+        if excel_file:
+            # Log the export action
+            log_audit_action('export_excel', f'Exported {excel_file.getbuffer().nbytes} bytes of order data')
+            
+            # Create response with Excel file
+            response = make_response(excel_file.getvalue())
+            response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            response.headers['Content-Disposition'] = f'attachment; filename=delta_epsilon_psi_orders_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+            
+            return response
+        else:
+            flash('Error generating Excel file', 'error')
+            return redirect(url_for('admin_dashboard'))
+            
+    except Exception as e:
+        flash(f'Error exporting to Excel: {e}', 'error')
+        return redirect(url_for('admin_dashboard'))
 
 if __name__ == '__main__':
     init_db()
