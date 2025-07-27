@@ -100,18 +100,60 @@ def init_db():
         )
     ''')
     
-    # Create Transaction table
+    # Create venmo_transactions table
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS payment_transaction (
+        CREATE TABLE IF NOT EXISTS venmo_transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            date DATE NOT NULL,
+            datetime TEXT NOT NULL,
+            type TEXT NOT NULL,
+            note TEXT,
+            from_user TEXT,
+            to_user TEXT,
             amount REAL NOT NULL,
-            payer_identifier TEXT NOT NULL,
-            imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            fee REAL,
+            net_amount REAL,
+            csv_filename TEXT,
+            csv_upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(datetime, from_user, to_user, amount)
         )
     ''')
     
-
+    # Create zelle_transactions table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS zelle_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            description TEXT,
+            amount REAL NOT NULL,
+            type TEXT,
+            balance REAL,
+            payer_identifier TEXT,
+            csv_filename TEXT,
+            csv_upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(date, description, amount, payer_identifier)
+        )
+    ''')
+    
+    # Create csv_uploads table for tracking uploads
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS csv_uploads (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            filename TEXT NOT NULL,
+            original_filename TEXT NOT NULL,
+            file_size INTEGER NOT NULL,
+            upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            upload_type TEXT NOT NULL, -- 'venmo' or 'zelle'
+            records_processed INTEGER DEFAULT 0,
+            new_records INTEGER DEFAULT 0,
+            updated_records INTEGER DEFAULT 0,
+            admin_user TEXT NOT NULL,
+            status TEXT DEFAULT 'success' -- 'success', 'error', 'partial'
+        )
+    ''')
     
     # Create Audit Log table
     cursor.execute('''
@@ -411,8 +453,8 @@ def parse_ocr_data(text):
     return result
 
 def match_transaction(order_id):
-    """Match order with imported transactions"""
-    conn = sqlite3.connect('tickets.db')
+    """Match order with imported transactions from both Venmo and Zelle tables"""
+    conn = sqlite3.connect(get_db_path())
     cursor = conn.cursor()
     
     # Get order details
@@ -432,24 +474,41 @@ def match_transaction(order_id):
         conn.close()
         return False
     
-    # Look for matching transaction
+    # Convert ocr_date to string for comparison
+    if isinstance(ocr_date, str):
+        ocr_date_str = ocr_date
+    else:
+        ocr_date_str = ocr_date.strftime('%Y-%m-%d')
+    
+    # Look for matching transaction in Venmo table
     cursor.execute('''
-        SELECT id FROM payment_transaction 
+        SELECT id FROM venmo_transactions 
         WHERE amount = ? 
-        AND date BETWEEN ? AND ?
-    ''', (ocr_amount, ocr_date - timedelta(days=1), ocr_date + timedelta(days=1)))
+        AND datetime LIKE ?
+    ''', (ocr_amount, f"{ocr_date_str}%"))
     
-    match = cursor.fetchone()
+    venmo_match = cursor.fetchone()
     
-    # Update order status
-    if match:
+    # Look for matching transaction in Zelle table
+    cursor.execute('''
+        SELECT id FROM zelle_transactions 
+        WHERE amount = ? 
+        AND date = ?
+    ''', (ocr_amount, ocr_date_str))
+    
+    zelle_match = cursor.fetchone()
+    
+    # Update order status based on matches
+    if venmo_match or zelle_match:
         cursor.execute('UPDATE order_table SET status = ? WHERE id = ?', ('Verified', order_id))
+        match_found = True
     else:
         cursor.execute('UPDATE order_table SET status = ? WHERE id = ?', ('Flagged', order_id))
+        match_found = False
     
     conn.commit()
     conn.close()
-    return bool(match)
+    return match_found
 
 
 
@@ -486,7 +545,7 @@ def detect_csv_format(csv_content):
     return 'unknown'
 
 def parse_chase_csv(csv_content):
-    """Parse Chase CSV format specifically"""
+    """Parse Chase CSV format and return full structured data"""
     transactions = []
     
     # Skip header row
@@ -518,22 +577,35 @@ def parse_chase_csv(csv_content):
                 amount_str = parts[3].strip()
                 amount = float(amount_str.replace('$', '').replace(',', ''))
                 
-                # Extract payer name from description
+                # Extract description
                 description = parts[2].strip()
+                
+                # Extract transaction type
+                transaction_type = parts[4].strip() if len(parts) > 4 else ""
+                
+                # Extract balance
+                balance = 0.0
+                if len(parts) > 5:
+                    balance_str = parts[5].strip()
+                    if balance_str:
+                        balance = float(balance_str.replace('$', '').replace(',', ''))
                 
                 # Parse Zelle payment descriptions
                 # Format: "ZELLE PAYMENT FROM JOHN DOE" or "Zelle payment from JOHN DOE"
                 payer_match = re.search(r'(?:ZELLE PAYMENT FROM|Zelle payment from)\s+(.+)', description, re.IGNORECASE)
                 if payer_match:
-                    payer_name = payer_match.group(1).strip()
+                    payer_identifier = payer_match.group(1).strip()
                 else:
-                    # Fallback: use description as payer name
-                    payer_name = description
+                    # Fallback: use description as payer identifier
+                    payer_identifier = description
                 
                 transactions.append({
                     'date': date,
+                    'description': description,
                     'amount': amount,
-                    'payer_identifier': payer_name
+                    'type': transaction_type,
+                    'balance': balance,
+                    'payer_identifier': payer_identifier
                 })
                 
             except (ValueError, IndexError) as e:
@@ -543,7 +615,7 @@ def parse_chase_csv(csv_content):
     return transactions
 
 def parse_venmo_csv(csv_content):
-    """Parse Venmo CSV format specifically"""
+    """Parse Venmo CSV format and return full structured data"""
     transactions = []
     
     # Skip first 3 lines (header rows)
@@ -560,34 +632,53 @@ def parse_venmo_csv(csv_content):
         parts = line.split(',')
         if len(parts) >= 9:
             try:
-                # Extract date from datetime (format: "2025-03-24T15:50:20")
+                # Extract datetime (format: "2025-03-24T15:50:20")
                 datetime_str = parts[2].strip()  # Datetime is in column 2
-                if datetime_str and 'T' in datetime_str:
-                    # Convert to YYYY-MM-DD format
-                    date = datetime_str.split('T')[0]
-                else:
+                if not datetime_str or 'T' not in datetime_str:
                     continue
+                
+                # Extract transaction type
+                transaction_type = parts[3].strip() if len(parts) > 3 else ""
+                
+                # Extract note
+                note = parts[5].strip() if len(parts) > 5 else ""
+                
+                # Extract from user
+                from_user = parts[6].strip() if len(parts) > 6 else ""
+                
+                # Extract to user
+                to_user = parts[7].strip() if len(parts) > 7 else ""
                 
                 # Extract amount (remove any currency symbols and convert to float)
                 amount_str = parts[8].strip()  # Amount (total) is in column 8
                 if amount_str.startswith('$'):
-                    # Remove $ and any trailing spaces, then convert to float
                     amount = float(amount_str.replace('$', '').strip())
                 else:
                     continue
                 
-                # Extract payer name from "From" column (column 6)
-                payer_name = parts[6].strip() if len(parts) > 6 else "Unknown"
+                # Extract fee (if available)
+                fee = 0.0
+                if len(parts) > 9:
+                    fee_str = parts[9].strip()
+                    if fee_str.startswith('$'):
+                        fee = float(fee_str.replace('$', '').strip())
+                
+                # Calculate net amount
+                net_amount = amount - fee
                 
                 # Only include incoming payments (positive amounts) and "Payment" type
-                payment_type = parts[3].strip() if len(parts) > 3 else ""
-                if amount > 0 and payment_type == "Payment":
+                if amount > 0 and transaction_type == "Payment":
                     transactions.append({
-                        'date': date,
+                        'datetime': datetime_str,
+                        'type': transaction_type,
+                        'note': note,
+                        'from_user': from_user,
+                        'to_user': to_user,
                         'amount': amount,
-                        'payer_identifier': payer_name
+                        'fee': fee,
+                        'net_amount': net_amount
                     })
-                    print(f"Venmo CSV Debug - Added transaction: {date}, ${amount}, {payer_name}")
+                    print(f"Venmo CSV Debug - Added transaction: {from_user} -> {to_user}, Amount: ${amount}")
                 
             except (ValueError, IndexError) as e:
                 print(f"Error parsing Venmo line: {line}, Error: {e}")
@@ -832,7 +923,7 @@ def admin_dashboard():
 @app.route('/admin/upload-csv', methods=['POST'])
 @login_required
 def upload_csv():
-    """Handle CSV upload for transactions"""
+    """Handle CSV upload for transactions with storage and duplicate detection"""
     if 'csv_file' not in request.files:
         flash('No file uploaded', 'error')
         return redirect(url_for('admin_dashboard'))
@@ -843,37 +934,134 @@ def upload_csv():
         return redirect(url_for('admin_dashboard'))
     
     try:
-        # Read CSV content
-        csv_content = file.read().decode('utf-8')
+        # Generate unique filename for storage
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        original_filename = secure_filename(file.filename)
+        stored_filename = f"{timestamp}_{original_filename}"
+        file_path = os.path.join('csv_uploads', stored_filename)
         
-        # Debug: Log CSV content for troubleshooting
-        print(f"CSV Debug - First 500 characters: {csv_content[:500]}...")
+        # Save the CSV file
+        file.save(file_path)
+        file_size = os.path.getsize(file_path)
         
-        # Parse CSV using universal parser that detects format
-        transactions = parse_csv_transactions(csv_content)
+        # Read CSV content for parsing
+        with open(file_path, 'r', encoding='utf-8') as f:
+            csv_content = f.read()
         
-        # Debug: Log parsing results
-        print(f"CSV Debug - Parsed {len(transactions)} transactions")
+        # Detect CSV format
+        format_type = detect_csv_format(csv_content)
+        print(f"CSV Debug - Detected format: {format_type}")
+        
+        # Parse CSV based on format
+        if format_type == 'venmo':
+            transactions = parse_venmo_csv(csv_content)
+            upload_type = 'venmo'
+        elif format_type == 'chase':
+            transactions = parse_chase_csv(csv_content)
+            upload_type = 'zelle'
+        else:
+            # Try both parsers
+            venmo_transactions = parse_venmo_csv(csv_content)
+            chase_transactions = parse_chase_csv(csv_content)
+            
+            if len(venmo_transactions) > len(chase_transactions):
+                transactions = venmo_transactions
+                upload_type = 'venmo'
+            else:
+                transactions = chase_transactions
+                upload_type = 'zelle'
         
         if not transactions:
             flash('No valid transactions found in CSV. Please check the file format.', 'error')
             return redirect(url_for('admin_dashboard'))
         
-        # Save to database
-        conn = sqlite3.connect('tickets.db')
+        # Connect to database
+        conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         
-        for transaction in transactions:
-            cursor.execute('''
-                INSERT OR IGNORE INTO payment_transaction (date, amount, payer_identifier)
-                VALUES (?, ?, ?)
-            ''', (transaction['date'], transaction['amount'], transaction['payer_identifier']))
+        new_records = 0
+        updated_records = 0
+        
+        # Process transactions based on type
+        if upload_type == 'venmo':
+            for transaction in transactions:
+                try:
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO venmo_transactions 
+                        (datetime, type, note, from_user, to_user, amount, fee, net_amount, csv_filename, csv_upload_date, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        transaction['datetime'],
+                        transaction['type'],
+                        transaction['note'],
+                        transaction['from_user'],
+                        transaction['to_user'],
+                        transaction['amount'],
+                        transaction['fee'],
+                        transaction['net_amount'],
+                        stored_filename,
+                        datetime.now(),
+                        datetime.now()
+                    ))
+                    
+                    if cursor.rowcount > 0:
+                        new_records += 1
+                    else:
+                        updated_records += 1
+                        
+                except Exception as e:
+                    print(f"Error inserting Venmo transaction: {e}")
+                    continue
+                    
+        else:  # zelle
+            for transaction in transactions:
+                try:
+                    cursor.execute('''
+                        INSERT OR REPLACE INTO zelle_transactions 
+                        (date, description, amount, type, balance, payer_identifier, csv_filename, csv_upload_date, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        transaction['date'],
+                        transaction['description'],
+                        transaction['amount'],
+                        transaction['type'],
+                        transaction['balance'],
+                        transaction['payer_identifier'],
+                        stored_filename,
+                        datetime.now(),
+                        datetime.now()
+                    ))
+                    
+                    if cursor.rowcount > 0:
+                        new_records += 1
+                    else:
+                        updated_records += 1
+                        
+                except Exception as e:
+                    print(f"Error inserting Zelle transaction: {e}")
+                    continue
+        
+        # Record upload in csv_uploads table
+        cursor.execute('''
+            INSERT INTO csv_uploads 
+            (filename, original_filename, file_size, upload_type, records_processed, new_records, updated_records, admin_user)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            stored_filename,
+            original_filename,
+            file_size,
+            upload_type,
+            len(transactions),
+            new_records,
+            updated_records,
+            session.get('admin_username', 'Unknown')
+        ))
         
         conn.commit()
         conn.close()
         
         # Re-run matching for all pending orders
-        conn = sqlite3.connect('tickets.db')
+        conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         cursor.execute('SELECT id FROM order_table WHERE status = "Pending" AND ocr_amount IS NOT NULL AND ocr_date IS NOT NULL')
         pending_orders = cursor.fetchall()
@@ -884,11 +1072,20 @@ def upload_csv():
             if match_transaction(order[0]):
                 matched_count += 1
         
-        log_audit_action('csv_upload', f'Imported {len(transactions)} transactions from CSV, matched {matched_count} pending orders')
-        flash(f'Successfully imported {len(transactions)} transactions and matched {matched_count} pending orders', 'success')
+        # Log the upload action
+        log_audit_action('csv_upload', 
+                        f'Uploaded {upload_type} CSV: {original_filename}, '
+                        f'Processed {len(transactions)} transactions, '
+                        f'New: {new_records}, Updated: {updated_records}, '
+                        f'Matched {matched_count} pending orders')
+        
+        flash(f'Successfully uploaded {upload_type} CSV: {original_filename}. '
+              f'Processed {len(transactions)} transactions (New: {new_records}, Updated: {updated_records}). '
+              f'Matched {matched_count} pending orders.', 'success')
         
     except Exception as e:
         flash(f'Error uploading CSV: {str(e)}', 'error')
+        print(f"CSV Upload Error: {e}")
     
     return redirect(url_for('admin_dashboard'))
 
@@ -1227,6 +1424,41 @@ def export_excel():
             
     except Exception as e:
         flash(f'Error exporting to Excel: {e}', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/csv-management')
+@login_required
+def csv_management():
+    """CSV upload management page"""
+    try:
+        conn = sqlite3.connect(get_db_path())
+        cursor = conn.cursor()
+        
+        # Get CSV upload history
+        cursor.execute('''
+            SELECT filename, original_filename, file_size, upload_date, upload_type, 
+                   records_processed, new_records, updated_records, admin_user, status
+            FROM csv_uploads 
+            ORDER BY upload_date DESC
+        ''')
+        uploads = cursor.fetchall()
+        
+        # Get transaction counts
+        cursor.execute('SELECT COUNT(*) FROM venmo_transactions')
+        venmo_count = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT COUNT(*) FROM zelle_transactions')
+        zelle_count = cursor.fetchone()[0]
+        
+        conn.close()
+        
+        return render_template('csv_management.html', 
+                             uploads=uploads,
+                             venmo_count=venmo_count,
+                             zelle_count=zelle_count)
+                             
+    except Exception as e:
+        flash(f'Error loading CSV management: {e}', 'error')
         return redirect(url_for('admin_dashboard'))
 
 if __name__ == '__main__':

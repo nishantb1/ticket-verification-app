@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}CSV Management - ΔΕΨ Ticket Verifier{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2><i class="fas fa-file-csv me-2"></i>CSV Management</h2>
+    </div>
+    <div class="col-md-4 text-end">
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-primary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Transaction Summary Cards -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="stats-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h4 class="card-title">{{ venmo_count }}</h4>
+                    <p class="card-text">Venmo Transactions</p>
+                </div>
+                <div class="align-self-center">
+                    <i class="fab fa-venmo fa-2x text-primary"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="stats-card">
+            <div class="d-flex justify-content-between">
+                <div>
+                    <h4 class="card-title">{{ zelle_count }}</h4>
+                    <p class="card-text">Zelle Transactions</p>
+                </div>
+                <div class="align-self-center">
+                    <i class="fas fa-university fa-2x text-success"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CSV Upload History -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-history me-2"></i>CSV Upload History
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if uploads %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Upload Date</th>
+                                <th>Original Filename</th>
+                                <th>Type</th>
+                                <th>File Size</th>
+                                <th>Records Processed</th>
+                                <th>New Records</th>
+                                <th>Updated Records</th>
+                                <th>Admin User</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for upload in uploads %}
+                            <tr>
+                                <td>{{ upload[3].split(' ')[0] if upload[3] else 'N/A' }}</td>
+                                <td>
+                                    <span class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ upload[1] }}">
+                                        {{ upload[1] }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if upload[4] == 'venmo' %}
+                                        <span class="badge bg-primary">
+                                            <i class="fab fa-venmo me-1"></i>Venmo
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-university me-1"></i>Zelle
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ "%.1f"|format(upload[2] / 1024) }} KB</td>
+                                <td>{{ upload[5] }}</td>
+                                <td>
+                                    <span class="badge bg-success">{{ upload[6] }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ upload[7] }}</span>
+                                </td>
+                                <td>{{ upload[8] }}</td>
+                                <td>
+                                    {% if upload[9] == 'success' %}
+                                        <span class="badge bg-success">Success</span>
+                                    {% elif upload[9] == 'error' %}
+                                        <span class="badge bg-danger">Error</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Partial</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-file-csv fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No CSV uploads yet</h5>
+                    <p class="text-muted">Upload your first CSV file from the admin dashboard to see upload history here.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Information Cards -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-info-circle me-2"></i>How It Works
+                </h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        <strong>File Storage:</strong> All uploaded CSV files are stored securely
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        <strong>Duplicate Detection:</strong> Existing records are updated, new ones are added
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        <strong>Format Detection:</strong> Automatically detects Venmo vs Chase/Zelle formats
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        <strong>Audit Trail:</strong> All uploads are logged with detailed statistics
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-database me-2"></i>Data Structure
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <h6 class="text-primary">
+                        <i class="fab fa-venmo me-2"></i>Venmo Transactions
+                    </h6>
+                    <small class="text-muted">
+                        datetime, type, note, from_user, to_user, amount, fee, net_amount
+                    </small>
+                </div>
+                <div>
+                    <h6 class="text-success">
+                        <i class="fas fa-university me-2"></i>Zelle Transactions
+                    </h6>
+                    <small class="text-muted">
+                        date, description, amount, type, balance, payer_identifier
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
