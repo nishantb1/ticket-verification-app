@@ -25,8 +25,9 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
-# Ensure upload folder exists
+# Ensure upload folders exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs('csv_uploads', exist_ok=True)
 
 def get_db_path():
     """Get the absolute path to the database file"""
@@ -934,11 +935,15 @@ def upload_csv():
         return redirect(url_for('admin_dashboard'))
     
     try:
+        # Ensure csv_uploads directory exists
+        csv_uploads_dir = 'csv_uploads'
+        os.makedirs(csv_uploads_dir, exist_ok=True)
+        
         # Generate unique filename for storage
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         original_filename = secure_filename(file.filename)
         stored_filename = f"{timestamp}_{original_filename}"
-        file_path = os.path.join('csv_uploads', stored_filename)
+        file_path = os.path.join(csv_uploads_dir, stored_filename)
         
         # Save the CSV file
         file.save(file_path)
