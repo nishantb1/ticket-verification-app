@@ -838,7 +838,7 @@ def approve_order(order_id):
 def reject_order(order_id):
     """Reject order"""
     try:
-        conn = sqlite3.connect('tickets.db')
+        conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         cursor.execute('UPDATE order_table SET status = ? WHERE id = ?', ('Rejected', order_id))
         conn.commit()
@@ -847,6 +847,35 @@ def reject_order(order_id):
         flash('Order rejected', 'success')
     except Exception as e:
         flash(f'Error rejecting order: {str(e)}', 'error')
+    
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/delete/<int:order_id>')
+@login_required
+def delete_order(order_id):
+    """Delete an order completely"""
+    try:
+        conn = sqlite3.connect(get_db_path())
+        cursor = conn.cursor()
+        
+        # Get order details for audit log
+        cursor.execute('SELECT name, email, uuid FROM order_table WHERE id = ?', (order_id,))
+        order = cursor.fetchone()
+        
+        if order:
+            # Delete the order
+            cursor.execute('DELETE FROM order_table WHERE id = ?', (order_id,))
+            conn.commit()
+            
+            # Log the deletion
+            log_audit_action('delete_order', f'Order {order_id} (Customer: {order[0]}, Email: {order[1]}, UUID: {order[2]}) deleted')
+            flash('Order deleted successfully!', 'success')
+        else:
+            flash('Order not found!', 'error')
+        
+        conn.close()
+    except Exception as e:
+        flash(f'Error deleting order: {e}', 'error')
     
     return redirect(url_for('admin_dashboard'))
 

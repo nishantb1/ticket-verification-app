@@ -306,14 +306,17 @@
                 <img src="{{ url_for('serve_receipt', filename=order[13]) }}" class="receipt-thumbnail mb-2" alt="Receipt" onclick="openReceiptModal('{{ url_for('serve_receipt', filename=order[13]) }}')" style="cursor: pointer;" title="Click to view larger">
                 {% endif %}
                 <div class="btn-group btn-group-sm w-100">
-                    <button class="btn btn-outline-success" onclick="approveOrder({{ order[0] }})">
+                    <button class="btn btn-outline-success" onclick="approveOrder({{ order[0] }})" title="Approve">
                         <i class="fas fa-check"></i>
                     </button>
-                    <button class="btn btn-outline-danger" onclick="rejectOrder({{ order[0] }})">
+                    <button class="btn btn-outline-danger" onclick="rejectOrder({{ order[0] }})" title="Reject">
                         <i class="fas fa-times"></i>
                     </button>
-                    <button class="btn btn-outline-primary" onclick="editOrder({{ order[0] }})">
+                    <button class="btn btn-outline-primary" onclick="editOrder({{ order[0] }})" title="Edit">
                         <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-outline-dark" onclick="deleteOrder({{ order[0] }})" title="Delete">
+                        <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>
@@ -356,11 +359,14 @@
                 <img src="{{ url_for('serve_receipt', filename=order[13]) }}" class="receipt-thumbnail mb-2" alt="Receipt" onclick="openReceiptModal('{{ url_for('serve_receipt', filename=order[13]) }}')" style="cursor: pointer;" title="Click to view larger">
                 {% endif %}
                 <div class="btn-group btn-group-sm w-100">
-                    <button class="btn btn-outline-success" onclick="approveOrder({{ order[0] }})">
+                    <button class="btn btn-outline-success" onclick="approveOrder({{ order[0] }})" title="Approve">
                         <i class="fas fa-check"></i>
                     </button>
-                    <button class="btn btn-outline-primary" onclick="editOrder({{ order[0] }})">
+                    <button class="btn btn-outline-primary" onclick="editOrder({{ order[0] }})" title="Edit">
                         <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-outline-dark" onclick="deleteOrder({{ order[0] }})" title="Delete">
+                        <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>
@@ -403,14 +409,17 @@
                 <img src="{{ url_for('serve_receipt', filename=order[13]) }}" class="receipt-thumbnail mb-2" alt="Receipt" onclick="openReceiptModal('{{ url_for('serve_receipt', filename=order[13]) }}')" style="cursor: pointer;" title="Click to view larger">
                 {% endif %}
                 <div class="btn-group btn-group-sm w-100">
-                    <button class="btn btn-outline-success" onclick="approveOrder({{ order[0] }})">
+                    <button class="btn btn-outline-success" onclick="approveOrder({{ order[0] }})" title="Approve">
                         <i class="fas fa-check"></i>
                     </button>
-                    <button class="btn btn-outline-danger" onclick="rejectOrder({{ order[0] }})">
+                    <button class="btn btn-outline-danger" onclick="rejectOrder({{ order[0] }})" title="Reject">
                         <i class="fas fa-times"></i>
                     </button>
-                    <button class="btn btn-outline-primary" onclick="editOrder({{ order[0] }})">
+                    <button class="btn btn-outline-primary" onclick="editOrder({{ order[0] }})" title="Edit">
                         <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-outline-dark" onclick="deleteOrder({{ order[0] }})" title="Delete">
+                        <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>
@@ -818,6 +827,12 @@ function approveOrder(orderId) {
 function rejectOrder(orderId) {
     if (confirm('Reject this order?')) {
         window.location.href = `/admin/reject/${orderId}`;
+    }
+}
+
+function deleteOrder(orderId) {
+    if (confirm('Are you sure you want to DELETE this order? This action cannot be undone.')) {
+        window.location.href = `/admin/delete/${orderId}`;
     }
 }
 
