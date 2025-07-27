@@ -907,14 +907,28 @@ def admin_dashboard():
     flagged = [order for order in orders if order[12] == 'Flagged']
     completed = [order for order in orders if order[12] == 'Completed']
     
+    # Get verified customers list (including both Verified and Completed statuses)
+    conn = sqlite3.connect(get_db_path())
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT name, email, boys_count, girls_count, expected_amount, created_at, status
+        FROM order_table 
+        WHERE status IN ('Verified', 'Completed')
+        ORDER BY created_at DESC
+    ''')
+    verified_customers = cursor.fetchall()
+    conn.close()
+    
     # Debug logging
     print(f"Admin Dashboard Debug - Total orders: {len(orders)}")
     print(f"Admin Dashboard Debug - Pending: {len(pending)}, Verified: {len(verified)}, Flagged: {len(flagged)}, Completed: {len(completed)}")
+    print(f"Admin Dashboard Debug - Verified customers: {len(verified_customers)}")
     
     # Create response with cache control headers
     response = make_response(render_template('admin.html', 
                          pending=pending, verified=verified, 
-                         flagged=flagged, completed=completed))
+                         flagged=flagged, completed=completed,
+                         verified_customers=verified_customers))
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
