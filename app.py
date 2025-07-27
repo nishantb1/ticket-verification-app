@@ -2,6 +2,7 @@ import os
 import uuid
 import sqlite3
 import re
+import time
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, make_response, session
 from werkzeug.utils import secure_filename
@@ -15,6 +16,10 @@ import tempfile
 from functools import wraps
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
+from logging_config import setup_logging, get_logger, log_order_submission, log_ocr_processing, log_csv_upload, log_admin_action, log_error, log_performance
+
+# Setup logging
+logger = setup_logging()
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-this-in-production'
@@ -28,6 +33,8 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 # Ensure upload folders exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs('csv_uploads', exist_ok=True)
+
+logger.info("Application initialized successfully")
 
 def get_db_path():
     """Get the absolute path to the database file"""
@@ -246,8 +253,13 @@ def log_audit_action(action, details=None):
         ''', (admin_user_id, action, details, request.remote_addr, request.headers.get('User-Agent')))
         conn.commit()
         conn.close()
+        
+        # Log admin action
+        admin_user = session.get('admin_username', 'Unknown')
+        log_admin_action(logger, admin_user, action, details)
+        
     except Exception as e:
-        print(f"Audit logging error: {e}")
+        log_error(logger, e, f"Audit logging failed for action: {action}")
 
 def export_orders_to_excel():
     """Export all orders to Excel spreadsheet"""
@@ -339,24 +351,38 @@ def export_orders_to_excel():
 
 def extract_text_from_image(image_path):
     """Extract text from image using OCR"""
+    start_time = time.time()
     try:
         image = Image.open(image_path)
         text = pytesseract.image_to_string(image)
+        
+        duration = time.time() - start_time
+        log_performance(logger, "OCR Image Processing", duration, f"File: {os.path.basename(image_path)}")
+        
         return text
     except Exception as e:
-        print(f"OCR Error: {e}")
+        duration = time.time() - start_time
+        log_error(logger, e, f"OCR failed for image: {image_path}")
         return ""
 
 def extract_text_from_pdf(pdf_path):
     """Extract text from PDF using OCR"""
+    start_time = time.time()
     try:
         images = pdf2image.convert_from_path(pdf_path)
         text = ""
-        for image in images:
-            text += pytesseract.image_to_string(image) + "\n"
+        for i, image in enumerate(images):
+            page_text = pytesseract.image_to_string(image)
+            text += page_text + "\n"
+            logger.debug(f"PDF OCR - Page {i+1}: {len(page_text)} characters")
+        
+        duration = time.time() - start_time
+        log_performance(logger, "OCR PDF Processing", duration, f"File: {os.path.basename(pdf_path)}, Pages: {len(images)}")
+        
         return text
     except Exception as e:
-        print(f"PDF OCR Error: {e}")
+        duration = time.time() - start_time
+        log_error(logger, e, f"PDF OCR failed for file: {pdf_path}")
         return ""
 
 def parse_ocr_data(text):
@@ -455,6 +481,7 @@ def parse_ocr_data(text):
 
 def match_transaction(order_id):
     """Match order with imported transactions from both Venmo and Zelle tables"""
+    start_time = time.time()
     conn = sqlite3.connect(get_db_path())
     cursor = conn.cursor()
     
@@ -509,6 +536,10 @@ def match_transaction(order_id):
     
     conn.commit()
     conn.close()
+    
+    duration = time.time() - start_time
+    log_performance(logger, "Transaction Matching", duration, f"Order ID: {order_id}, Result: {'Matched' if match_found else 'No match'}")
+    
     return match_found
 
 
@@ -761,13 +792,13 @@ def submit_order():
                 else:
                     ocr_text = extract_text_from_image(filepath)
                 
-                # Debug: Log OCR results for troubleshooting
-                print(f"OCR Debug - Raw text: {ocr_text[:200]}...")
+                # Log OCR results for troubleshooting
+                logger.debug(f"OCR Raw text (first 200 chars): {ocr_text[:200]}...")
                 
                 ocr_data = parse_ocr_data(ocr_text)
                 
-                # Debug: Log parsed data
-                print(f"OCR Debug - Parsed data: {ocr_data}")
+                # Log parsed OCR data
+                log_ocr_processing(logger, filename, ocr_text, ocr_data)
             else:
                 flash('Invalid file type', 'error')
                 return redirect(url_for('index'))
@@ -793,12 +824,25 @@ def submit_order():
         
         # Try to match with transactions
         if ocr_data['amount'] and ocr_data['date']:
-            match_transaction(order_id)
+            match_result = match_transaction(order_id)
+            logger.info(f"Transaction matching result for order {order_uuid}: {'Matched' if match_result else 'No match'}")
+        
+        # Log successful order submission
+        order_data = {
+            'uuid': order_uuid,
+            'name': name,
+            'email': email,
+            'boys_count': boys_count,
+            'girls_count': girls_count,
+            'expected_amount': expected_amount
+        }
+        log_order_submission(logger, order_data)
         
         flash(f'Order submitted successfully! Your order ID is: {order_uuid}', 'success')
         return redirect(url_for('index'))
         
     except Exception as e:
+        log_error(logger, e, f"Order submission failed for {request.form.get('name', 'Unknown')}")
         flash(f'Error submitting order: {str(e)}', 'error')
         return redirect(url_for('index'))
 
@@ -919,10 +963,8 @@ def admin_dashboard():
     verified_customers = cursor.fetchall()
     conn.close()
     
-    # Debug logging
-    print(f"Admin Dashboard Debug - Total orders: {len(orders)}")
-    print(f"Admin Dashboard Debug - Pending: {len(pending)}, Verified: {len(verified)}, Flagged: {len(flagged)}, Completed: {len(completed)}")
-    print(f"Admin Dashboard Debug - Verified customers: {len(verified_customers)}")
+    # Log dashboard statistics
+    logger.info(f"Admin Dashboard - Total orders: {len(orders)}, Pending: {len(pending)}, Verified: {len(verified)}, Flagged: {len(flagged)}, Completed: {len(completed)}, Verified customers: {len(verified_customers)}")
     
     # Create response with cache control headers
     response = make_response(render_template('admin.html', 
@@ -969,7 +1011,7 @@ def upload_csv():
         
         # Detect CSV format
         format_type = detect_csv_format(csv_content)
-        print(f"CSV Debug - Detected format: {format_type}")
+        logger.info(f"CSV format detected: {format_type} for file: {original_filename}")
         
         # Parse CSV based on format
         if format_type == 'venmo':
@@ -991,6 +1033,7 @@ def upload_csv():
                 upload_type = 'zelle'
         
         if not transactions:
+            logger.warning(f"No valid transactions found in CSV file: {original_filename}")
             flash('No valid transactions found in CSV. Please check the file format.', 'error')
             return redirect(url_for('admin_dashboard'))
         
@@ -1091,7 +1134,8 @@ def upload_csv():
             if match_transaction(order[0]):
                 matched_count += 1
         
-        # Log the upload action
+        # Log the upload action with structured logging
+        log_csv_upload(logger, original_filename, upload_type, len(transactions), new_records, updated_records)
         log_audit_action('csv_upload', 
                         f'Uploaded {upload_type} CSV: {original_filename}, '
                         f'Processed {len(transactions)} transactions, '
@@ -1103,8 +1147,8 @@ def upload_csv():
               f'Matched {matched_count} pending orders.', 'success')
         
     except Exception as e:
+        log_error(logger, e, f"CSV upload failed for file: {original_filename}")
         flash(f'Error uploading CSV: {str(e)}', 'error')
-        print(f"CSV Upload Error: {e}")
     
     return redirect(url_for('admin_dashboard'))
 
@@ -1135,6 +1179,7 @@ def approve_order(order_id):
         flash('Order approved successfully', 'success')
         
     except Exception as e:
+        log_error(logger, e, f"Order approval failed for order ID: {order_id}")
         flash(f'Error approving order: {str(e)}', 'error')
     
     return redirect(url_for('admin_dashboard'))
@@ -1152,6 +1197,7 @@ def reject_order(order_id):
         log_audit_action('reject_order', f'Rejected order {order_id}')
         flash('Order rejected', 'success')
     except Exception as e:
+        log_error(logger, e, f"Order rejection failed for order ID: {order_id}")
         flash(f'Error rejecting order: {str(e)}', 'error')
     
     return redirect(url_for('admin_dashboard'))
@@ -1181,6 +1227,7 @@ def delete_order(order_id):
         
         conn.close()
     except Exception as e:
+        log_error(logger, e, f"Order deletion failed for order ID: {order_id}")
         flash(f'Error deleting order: {e}', 'error')
     
     return redirect(url_for('admin_dashboard'))
@@ -1577,6 +1624,33 @@ def export_venmo_excel():
     except Exception as e:
         flash(f'Error exporting Venmo data: {e}', 'error')
         return redirect(url_for('csv_management'))
+
+@app.route('/admin/logs')
+@login_required
+def view_logs():
+    """View application logs"""
+    try:
+        log_file = 'logs/app.log'
+        error_log_file = 'logs/errors.log'
+        
+        # Read recent logs (last 100 lines)
+        app_logs = []
+        error_logs = []
+        
+        if os.path.exists(log_file):
+            with open(log_file, 'r', encoding='utf-8') as f:
+                app_logs = f.readlines()[-100:]  # Last 100 lines
+        
+        if os.path.exists(error_log_file):
+            with open(error_log_file, 'r', encoding='utf-8') as f:
+                error_logs = f.readlines()[-50:]  # Last 50 error lines
+        
+        return render_template('logs.html', app_logs=app_logs, error_logs=error_logs)
+        
+    except Exception as e:
+        log_error(logger, e, "Failed to read log files")
+        flash(f'Error reading logs: {e}', 'error')
+        return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/export-zelle-excel')
 @login_required

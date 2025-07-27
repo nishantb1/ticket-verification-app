@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Application Logs - ΔΕΨ Ticket Verifier{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="fas fa-file-alt me-2"></i>Application Logs
+                </h2>
+                <div>
+                    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+                    </a>
+                    <button class="btn btn-primary" onclick="location.reload()">
+                        <i class="fas fa-sync-alt me-1"></i>Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Application Logs -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-list me-2"></i>Application Logs (Last 100 entries)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                        <table class="table table-sm">
+                            <thead class="sticky-top bg-light">
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Level</th>
+                                    <th>Function</th>
+                                    <th>Message</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log_entry in app_logs %}
+                                <tr>
+                                    <td>
+                                        <small class="text-muted">{{ log_entry.split(' - ')[0] if ' - ' in log_entry else 'N/A' }}</small>
+                                    </td>
+                                    <td>
+                                        {% if 'ERROR' in log_entry %}
+                                            <span class="badge bg-danger">ERROR</span>
+                                        {% elif 'WARNING' in log_entry %}
+                                            <span class="badge bg-warning">WARNING</span>
+                                        {% elif 'INFO' in log_entry %}
+                                            <span class="badge bg-info">INFO</span>
+                                        {% elif 'DEBUG' in log_entry %}
+                                            <span class="badge bg-secondary">DEBUG</span>
+                                        {% else %}
+                                            <span class="badge bg-light text-dark">LOG</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {% if ' - ' in log_entry and ':' in log_entry.split(' - ')[2] %}
+                                                {{ log_entry.split(' - ')[2].split(':')[0] }}
+                                            {% else %}
+                                                N/A
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <small class="text-break">
+                                            {% if ' - ' in log_entry %}
+                                                {{ log_entry.split(' - ', 3)[3] if log_entry.split(' - ')|length > 3 else log_entry.split(' - ')[-1] }}
+                                            {% else %}
+                                                {{ log_entry }}
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Logs -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Error Logs (Last 50 entries)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                        <table class="table table-sm">
+                            <thead class="sticky-top bg-light">
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Error</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log_entry in error_logs %}
+                                <tr>
+                                    <td>
+                                        <small class="text-muted">{{ log_entry.split(' - ')[0] if ' - ' in log_entry else 'N/A' }}</small>
+                                    </td>
+                                    <td>
+                                        <small class="text-danger text-break">
+                                            {% if ' - ' in log_entry %}
+                                                {{ log_entry.split(' - ', 3)[3] if log_entry.split(' - ')|length > 3 else log_entry.split(' - ')[-1] }}
+                                            {% else %}
+                                                {{ log_entry }}
+                                            {% endif %}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+}
+
+.text-break {
+    word-break: break-word;
+}
+
+.table-sm td, .table-sm th {
+    padding: 0.25rem;
+    font-size: 0.875rem;
+}
+</style>
+
+<script>
+// Auto-refresh logs every 30 seconds
+setInterval(function() {
+    location.reload();
+}, 30000);
+</script>
+{% endblock %} 
