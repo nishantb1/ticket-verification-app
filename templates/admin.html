@@ -13,7 +13,7 @@
                 </h2>
                 <p class="text-muted mb-0">Welcome, {{ session.admin_username }} ({{ session.admin_role|title }})</p>
             </div>
-            <div class="d-flex gap-2 flex-wrap">
+            <div class="d-flex gap-2 flex-wrap search-filters">
                 <button class="btn btn-primary" onclick="location.reload()">
                     <i class="fas fa-sync-alt me-2"></i>Refresh
                 </button>
@@ -57,7 +57,7 @@
 <!-- Quick Stats Cards -->
 <div class="row mb-4">
     <div class="col-md-3">
-        <div class="card bg-primary text-white">
+        <div class="card bg-primary text-white stats-card">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
@@ -72,7 +72,7 @@
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card bg-success text-white">
+        <div class="card bg-success text-white stats-card">
             <div class="card-body">
                 <div class="d-flex justify-content-between">
                     <div>
@@ -920,9 +920,151 @@ document.getElementById('editForm').addEventListener('submit', function(e) {
     border-radius: 3px;
 }
 
-.greek-letters {
-    color: #1e3a8a;
-    font-weight: bold;
-}
-</style>
+        .greek-letters {
+            color: #1e3a8a;
+            font-weight: bold;
+        }
+        
+        /* Enhanced Mobile Responsiveness */
+        @media (max-width: 768px) {
+            .kanban-column {
+                margin-bottom: 15px;
+                min-height: 400px;
+            }
+            
+            .kanban-header {
+                padding: 12px 15px;
+            }
+            
+            .kanban-header h5 {
+                font-size: 1rem;
+            }
+            
+            .kanban-content {
+                padding: 10px;
+                max-height: 350px;
+            }
+            
+            .order-card {
+                padding: 12px;
+                margin-bottom: 10px;
+            }
+            
+            .order-card .btn-group-sm {
+                flex-direction: column;
+            }
+            
+            .order-card .btn-group-sm .btn {
+                width: 100%;
+                margin-bottom: 2px;
+                border-radius: 6px !important;
+            }
+            
+            .receipt-thumbnail {
+                max-width: 150px;
+            }
+            
+            .stats-card {
+                margin-bottom: 15px;
+            }
+            
+            .stats-card .card-body {
+                padding: 15px;
+            }
+            
+            .stats-card h4 {
+                font-size: 1.5rem;
+            }
+            
+            .search-filters {
+                flex-direction: column;
+                gap: 10px !important;
+            }
+            
+            .search-filters input,
+            .search-filters select,
+            .search-filters button {
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .container-fluid {
+                padding-left: 5px;
+                padding-right: 5px;
+            }
+            
+            .kanban-column {
+                min-height: 300px;
+            }
+            
+            .kanban-content {
+                max-height: 250px;
+            }
+            
+            .order-card {
+                padding: 10px;
+                font-size: 0.9rem;
+            }
+            
+            .order-card strong {
+                font-size: 1rem;
+            }
+            
+            .order-card small {
+                font-size: 0.8rem;
+            }
+            
+            .badge {
+                font-size: 0.7rem;
+                padding: 0.3rem 0.6rem;
+            }
+            
+            .stats-card h4 {
+                font-size: 1.2rem;
+            }
+            
+            .stats-card small {
+                font-size: 0.8rem;
+            }
+            
+            .stats-card .fa-2x {
+                font-size: 1.5rem;
+            }
+            
+            .table-responsive {
+                font-size: 0.8rem;
+            }
+            
+            .table-responsive th,
+            .table-responsive td {
+                padding: 0.5rem 0.3rem;
+            }
+        }
+        
+        /* Touch-friendly improvements */
+        @media (hover: none) and (pointer: coarse) {
+            .btn {
+                min-height: 44px;
+                min-width: 44px;
+            }
+            
+            .order-card {
+                cursor: pointer;
+            }
+            
+            .receipt-thumbnail {
+                cursor: pointer;
+            }
+            
+            .modal-dialog {
+                margin: 10px;
+            }
+            
+            .form-control,
+            .form-select {
+                min-height: 44px;
+            }
+        }
+    </style>
 {% endblock %} 

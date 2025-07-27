@@ -2,12 +2,101 @@
 
 {% block title %}CSV Management - ΔΕΨ Ticket Verifier{% endblock %}
 
+{% block scripts %}
+<style>
+/* Mobile-specific improvements for CSV management */
+@media (max-width: 768px) {
+    .stats-card {
+        margin-bottom: 15px;
+    }
+    
+    .stats-card .card-body {
+        padding: 15px;
+    }
+    
+    .stats-card h4 {
+        font-size: 1.5rem;
+    }
+    
+    .stats-card p {
+        font-size: 0.9rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.85rem;
+    }
+    
+    .table-responsive th,
+    .table-responsive td {
+        padding: 0.5rem 0.3rem;
+    }
+    
+    .badge {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.6rem;
+    }
+    
+    .text-truncate {
+        max-width: 150px !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .container {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+    
+    .stats-card h4 {
+        font-size: 1.2rem;
+    }
+    
+    .stats-card .fa-2x {
+        font-size: 1.5rem;
+    }
+    
+    .table-responsive {
+        font-size: 0.8rem;
+    }
+    
+    .table-responsive th,
+    .table-responsive td {
+        padding: 0.3rem 0.2rem;
+    }
+    
+    .text-truncate {
+        max-width: 100px !important;
+    }
+    
+    .btn {
+        width: 100%;
+        margin-bottom: 5px;
+    }
+    
+    .text-end {
+        text-align: left !important;
+    }
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+    .btn {
+        min-height: 44px;
+    }
+    
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+    }
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row mb-4">
-    <div class="col-md-8">
+    <div class="col-lg-8 col-md-7 col-sm-12">
         <h2><i class="fas fa-file-csv me-2"></i>CSV Management</h2>
     </div>
-    <div class="col-md-4 text-end">
+    <div class="col-lg-4 col-md-5 col-sm-12 text-end">
         <a href="{{ url_for('admin_dashboard') }}" class="btn btn-primary">
             <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
         </a>

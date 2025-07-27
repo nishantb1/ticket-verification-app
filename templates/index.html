@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-8">
+    <div class="col-lg-8 col-md-10 col-sm-12">
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title mb-0">
@@ -136,4 +136,87 @@ document.addEventListener('DOMContentLoaded', function() {
     updateTotals();
 });
 </script>
+
+<style>
+/* Mobile-specific improvements for customer form */
+@media (max-width: 768px) {
+    .card-body {
+        padding: 20px 15px;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+    
+    .form-control {
+        font-size: 16px;
+        padding: 12px;
+        border-radius: 8px;
+    }
+    
+    .btn-lg {
+        padding: 15px 20px;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    
+    .alert {
+        padding: 15px;
+        border-radius: 8px;
+    }
+    
+    .alert-info {
+        font-size: 0.95rem;
+    }
+    
+    .alert-secondary {
+        font-size: 0.95rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .card-body {
+        padding: 15px 10px;
+    }
+    
+    .form-control {
+        padding: 10px;
+        font-size: 16px;
+    }
+    
+    .btn-lg {
+        padding: 12px 15px;
+        font-size: 1rem;
+    }
+    
+    .alert {
+        padding: 12px;
+        font-size: 0.9rem;
+    }
+    
+    .form-text {
+        font-size: 0.85rem;
+    }
+    
+    .card-header h3 {
+        font-size: 1.3rem;
+    }
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+    .form-control {
+        min-height: 44px;
+    }
+    
+    .btn {
+        min-height: 44px;
+    }
+    
+    input[type="file"] {
+        padding: 10px;
+    }
+}
+</style>
 {% endblock %} 
