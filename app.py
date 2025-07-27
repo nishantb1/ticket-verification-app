@@ -1455,16 +1455,192 @@ def csv_management():
         cursor.execute('SELECT COUNT(*) FROM zelle_transactions')
         zelle_count = cursor.fetchone()[0]
         
+        # Get recent Venmo transactions (last 50)
+        cursor.execute('''
+            SELECT datetime, type, from_user, to_user, amount, fee, net_amount, csv_filename, csv_upload_date
+            FROM venmo_transactions 
+            ORDER BY datetime DESC 
+            LIMIT 50
+        ''')
+        venmo_transactions = cursor.fetchall()
+        
+        # Get recent Zelle transactions (last 50)
+        cursor.execute('''
+            SELECT date, description, amount, type, balance, payer_identifier, csv_filename, csv_upload_date
+            FROM zelle_transactions 
+            ORDER BY date DESC 
+            LIMIT 50
+        ''')
+        zelle_transactions = cursor.fetchall()
+        
         conn.close()
         
         return render_template('csv_management.html', 
                              uploads=uploads,
                              venmo_count=venmo_count,
-                             zelle_count=zelle_count)
+                             zelle_count=zelle_count,
+                             venmo_transactions=venmo_transactions,
+                             zelle_transactions=zelle_transactions)
                              
     except Exception as e:
         flash(f'Error loading CSV management: {e}', 'error')
         return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/export-venmo-excel')
+@login_required
+def export_venmo_excel():
+    """Export Venmo transactions to Excel file"""
+    try:
+        conn = sqlite3.connect(get_db_path())
+        cursor = conn.cursor()
+        
+        # Get all Venmo transactions
+        cursor.execute('''
+            SELECT datetime, type, note, from_user, to_user, amount, fee, net_amount, 
+                   csv_filename, csv_upload_date, created_at
+            FROM venmo_transactions 
+            ORDER BY datetime DESC
+        ''')
+        transactions = cursor.fetchall()
+        conn.close()
+        
+        # Create Excel workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Venmo Transactions"
+        
+        # Define headers
+        headers = [
+            'Date/Time', 'Type', 'Note', 'From User', 'To User', 'Amount', 
+            'Fee', 'Net Amount', 'CSV File', 'Upload Date', 'Created At'
+        ]
+        
+        # Style for headers
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        header_alignment = Alignment(horizontal="center", vertical="center")
+        
+        # Add headers
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+        
+        # Add data
+        for row, transaction in enumerate(transactions, 2):
+            for col, value in enumerate(transaction, 1):
+                ws.cell(row=row, column=col, value=value)
+        
+        # Auto-adjust column widths
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        # Save to bytes
+        excel_file = io.BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+        
+        # Log the export action
+        log_audit_action('export_venmo_excel', f'Exported {len(transactions)} Venmo transactions')
+        
+        # Create response
+        response = make_response(excel_file.getvalue())
+        response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        response.headers['Content-Disposition'] = f'attachment; filename=venmo_transactions_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        
+        return response
+        
+    except Exception as e:
+        flash(f'Error exporting Venmo data: {e}', 'error')
+        return redirect(url_for('csv_management'))
+
+@app.route('/admin/export-zelle-excel')
+@login_required
+def export_zelle_excel():
+    """Export Zelle transactions to Excel file"""
+    try:
+        conn = sqlite3.connect(get_db_path())
+        cursor = conn.cursor()
+        
+        # Get all Zelle transactions
+        cursor.execute('''
+            SELECT date, description, amount, type, balance, payer_identifier, 
+                   csv_filename, csv_upload_date, created_at
+            FROM zelle_transactions 
+            ORDER BY date DESC
+        ''')
+        transactions = cursor.fetchall()
+        conn.close()
+        
+        # Create Excel workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Zelle Transactions"
+        
+        # Define headers
+        headers = [
+            'Date', 'Description', 'Amount', 'Type', 'Balance', 'Payer Identifier',
+            'CSV File', 'Upload Date', 'Created At'
+        ]
+        
+        # Style for headers
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        header_alignment = Alignment(horizontal="center", vertical="center")
+        
+        # Add headers
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_alignment
+        
+        # Add data
+        for row, transaction in enumerate(transactions, 2):
+            for col, value in enumerate(transaction, 1):
+                ws.cell(row=row, column=col, value=value)
+        
+        # Auto-adjust column widths
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        # Save to bytes
+        excel_file = io.BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+        
+        # Log the export action
+        log_audit_action('export_zelle_excel', f'Exported {len(transactions)} Zelle transactions')
+        
+        # Create response
+        response = make_response(excel_file.getvalue())
+        response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        response.headers['Content-Disposition'] = f'attachment; filename=zelle_transactions_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        
+        return response
+        
+    except Exception as e:
+        flash(f'Error exporting Zelle data: {e}', 'error')
+        return redirect(url_for('csv_management'))
 
 if __name__ == '__main__':
     init_db()

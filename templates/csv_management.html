@@ -126,6 +126,139 @@
     </div>
 </div>
 
+<!-- Transaction Data Tables -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fab fa-venmo me-2"></i>Recent Venmo Transactions (Last 50)
+                </h5>
+                <a href="{{ url_for('export_venmo_excel') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-download me-1"></i>Export Venmo Data
+                </a>
+            </div>
+            <div class="card-body">
+                {% if venmo_transactions %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                        <thead>
+                            <tr>
+                                <th>Date/Time</th>
+                                <th>Type</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Amount</th>
+                                <th>Fee</th>
+                                <th>Net Amount</th>
+                                <th>CSV File</th>
+                                <th>Upload Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in venmo_transactions %}
+                            <tr>
+                                <td>{{ transaction[0] }}</td>
+                                <td>
+                                    <span class="badge bg-primary">{{ transaction[1] }}</span>
+                                </td>
+                                <td>{{ transaction[2] or 'N/A' }}</td>
+                                <td>{{ transaction[3] or 'N/A' }}</td>
+                                <td>${{ "%.2f"|format(transaction[4]) }}</td>
+                                <td>${{ "%.2f"|format(transaction[5]) if transaction[5] else '0.00' }}</td>
+                                <td>${{ "%.2f"|format(transaction[6]) }}</td>
+                                <td>
+                                    <small class="text-muted">{{ transaction[7] }}</small>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ transaction[8].split(' ')[0] if transaction[8] else 'N/A' }}</small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fab fa-venmo fa-3x text-muted mb-3"></i>
+                    <h6 class="text-muted">No Venmo transactions found</h6>
+                    <p class="text-muted">Upload a Venmo CSV file to see transaction data here.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-university me-2"></i>Recent Zelle Transactions (Last 50)
+                </h5>
+                <a href="{{ url_for('export_zelle_excel') }}" class="btn btn-sm btn-outline-success">
+                    <i class="fas fa-download me-1"></i>Export Zelle Data
+                </a>
+            </div>
+            <div class="card-body">
+                {% if zelle_transactions %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Description</th>
+                                <th>Amount</th>
+                                <th>Type</th>
+                                <th>Balance</th>
+                                <th>Payer</th>
+                                <th>CSV File</th>
+                                <th>Upload Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for transaction in zelle_transactions %}
+                            <tr>
+                                <td>{{ transaction[0] }}</td>
+                                <td>
+                                    <span class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ transaction[1] }}">
+                                        {{ transaction[1] or 'N/A' }}
+                                    </span>
+                                </td>
+                                <td>${{ "%.2f"|format(transaction[2]) }}</td>
+                                <td>
+                                    <span class="badge bg-success">{{ transaction[3] or 'N/A' }}</span>
+                                </td>
+                                <td>${{ "%.2f"|format(transaction[4]) if transaction[4] else 'N/A' }}</td>
+                                <td>
+                                    <span class="text-truncate d-inline-block" style="max-width: 150px;" title="{{ transaction[5] }}">
+                                        {{ transaction[5] or 'N/A' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ transaction[6] }}</small>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ transaction[7].split(' ')[0] if transaction[7] else 'N/A' }}</small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-university fa-3x text-muted mb-3"></i>
+                    <h6 class="text-muted">No Zelle transactions found</h6>
+                    <p class="text-muted">Upload a Chase/Zelle CSV file to see transaction data here.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Information Cards -->
 <div class="row mt-4">
     <div class="col-md-6">
