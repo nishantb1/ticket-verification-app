@@ -26,6 +26,10 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 # Ensure upload folder exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+def get_db_path():
+    """Get the absolute path to the database file"""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tickets.db')
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -41,7 +45,9 @@ def login_required(f):
 
 def init_db():
     """Initialize the database with tables"""
-    conn = sqlite3.connect('tickets.db')
+    # Use absolute path for database
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tickets.db')
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
     # Create Admin Users table
@@ -143,7 +149,7 @@ def init_db():
 
 def get_current_wave():
     """Get the current wave based on date"""
-    conn = sqlite3.connect('tickets.db')
+    conn = sqlite3.connect(get_db_path())
     cursor = conn.cursor()
     today = datetime.now().date()
     
@@ -167,7 +173,7 @@ def get_current_wave():
 
 def get_all_waves():
     """Get all waves for selection"""
-    conn = sqlite3.connect('tickets.db')
+    conn = sqlite3.connect(get_db_path())
     cursor = conn.cursor()
     
     cursor.execute('SELECT id, name, start_date, end_date, price_boy, price_girl FROM wave ORDER BY start_date')
@@ -187,7 +193,7 @@ def log_audit_action(action, details=None):
     """Log admin actions for audit trail"""
     try:
         admin_user_id = session.get('admin_user_id')
-        conn = sqlite3.connect('tickets.db')
+        conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         cursor.execute('''
             INSERT INTO audit_log (admin_user_id, action, details, ip_address, user_agent)
