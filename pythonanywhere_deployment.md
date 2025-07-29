@@ -26,8 +26,32 @@ In the PythonAnywhere bash console:
 
 ```bash
 cd /home/nishantb/ticket-verification-app
+```
+
+**Option 1: Try the standard requirements file**
+```bash
 pip install -r requirements.txt
 ```
+
+**Option 2: If Option 1 fails, use the PythonAnywhere-specific requirements**
+```bash
+pip install -r requirements-pythonanywhere.txt
+```
+
+**Option 3: Install packages individually if both fail**
+```bash
+pip install Flask==2.3.3
+pip install Werkzeug==2.3.7
+pip install Pillow==10.0.1
+pip install openpyxl==3.1.2
+pip install Jinja2==3.1.2
+pip install MarkupSafe==2.1.3
+pip install itsdangerous==2.1.2
+pip install click==8.1.7
+pip install blinker==1.6.3
+```
+
+**Note:** Some packages like `pytesseract` and `pdf2image` may not be available on PythonAnywhere's free tier. The app will work without them, but OCR functionality will be disabled.
 
 ### 3. Build Frontend (Optional)
 
@@ -83,10 +107,24 @@ Make sure your `.env` file is properly configured with:
 
 If you encounter issues:
 
-1. Check the PythonAnywhere error logs
-2. Verify all dependencies are installed
-3. Ensure the database file has proper permissions
-4. Check that upload directories exist and are writable
+1. **Pip Installation Errors:**
+   - Try using `requirements-pythonanywhere.txt` instead of `requirements.txt`
+   - Install packages individually if needed
+   - Some packages may not be available on PythonAnywhere's free tier
+
+2. **Import Errors:**
+   - Check the PythonAnywhere error logs
+   - Verify all dependencies are installed
+   - Ensure the database file has proper permissions
+   - Check that upload directories exist and are writable
+
+3. **OCR/PDF Issues:**
+   - `pytesseract` and `pdf2image` may not work on PythonAnywhere
+   - The app will function without OCR, but receipt processing will be manual
+
+4. **Database Issues:**
+   - Make sure `tickets.db` has proper read/write permissions
+   - Try running the database initialization script
 
 ### API Endpoints
 
