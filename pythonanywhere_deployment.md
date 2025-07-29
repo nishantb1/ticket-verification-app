@@ -18,9 +18,11 @@ After pulling the latest changes from git, follow these steps:
 - Set to your repository directory (e.g., `/home/nishantb/ticket-verification-app`)
 
 **WSGI configuration file:**
-- The `wsgi.py` file has been updated to import from `backend/api.py` instead of `app.py`
+- **IMPORTANT**: Replace the current WSGI configuration with the new one
+- Copy the contents of `pythonanywhere_wsgi.py` to your PythonAnywhere WSGI file
+- Or use the updated `wsgi.py` file from the repository
 
-### 2. Install Dependencies
+### 2. Fix Package Installation Issues
 
 In the PythonAnywhere bash console:
 
@@ -28,18 +30,14 @@ In the PythonAnywhere bash console:
 cd /home/nishantb/ticket-verification-app
 ```
 
-**Option 1: Try the standard requirements file**
+**Option 1: Run the automated fix script**
 ```bash
-pip install -r requirements.txt
+python fix_pythonanywhere.py
 ```
 
-**Option 2: If Option 1 fails, use the PythonAnywhere-specific requirements**
+**Option 2: Manual installation if the script fails**
 ```bash
-pip install -r requirements-pythonanywhere.txt
-```
-
-**Option 3: Install packages individually if both fail**
-```bash
+# Install core packages first
 pip install Flask==2.3.3
 pip install Werkzeug==2.3.7
 pip install Pillow==10.0.1
@@ -49,43 +47,91 @@ pip install MarkupSafe==2.1.3
 pip install itsdangerous==2.1.2
 pip install click==8.1.7
 pip install blinker==1.6.3
+
+# Install OCR packages (essential for receipt analysis)
+pip install pytesseract==0.3.10
+pip install pdf2image==1.16.3
 ```
 
-**Note:** Some packages like `pytesseract` and `pdf2image` may not be available on PythonAnywhere's free tier. The app will work without them, but OCR functionality will be disabled.
-
-### 3. Build Frontend (Optional)
-
-If you want to serve the React frontend from PythonAnywhere:
-
+**Option 3: If individual installation fails, try with --user flag**
 ```bash
-cd frontend
-npm install
-npm run build
+pip install --user pytesseract==0.3.10
+pip install --user pdf2image==1.16.3
 ```
 
-This will create a `build` folder that you can serve statically.
+### 3. Initialize Database
 
-### 4. Database Migration
-
-The database structure has been updated. The `tickets.db` file should work as-is, but if you encounter issues:
+The database tables need to be created. Run this in the PythonAnywhere bash console:
 
 ```bash
 cd /home/nishantb/ticket-verification-app
 python -c "from backend.api import init_db; init_db()"
 ```
 
-### 5. Restart Web App
+### 4. Create Required Directories
+
+```bash
+mkdir -p uploads csv_uploads logs
+```
+
+### 5. Update WSGI Configuration
+
+**CRITICAL**: You need to update your PythonAnywhere WSGI configuration file. 
+
+1. Go to your PythonAnywhere Web tab
+2. Click on your web app
+3. Click on the WSGI configuration file link
+4. Replace the entire content with:
+
+```python
+import sys
+import os
+
+# Add the project directory to the Python path
+path = '/home/nishantb/ticket-verification-app'
+if path not in sys.path:
+    sys.path.append(path)
+
+# Debug: Print current path and check if backend/api.py exists
+print(f"Current working directory: {os.getcwd()}")
+print(f"Python path: {sys.path}")
+print(f"Looking for backend/api.py in: {path}")
+print(f"backend/api.py exists: {os.path.exists(os.path.join(path, 'backend', 'api.py'))}")
+
+try:
+    # Import the Flask app from the new backend structure
+    from backend.api import app
+    print("✅ Successfully imported app from backend/api.py")
+except ImportError as e:
+    print(f"❌ Import error: {e}")
+    # Try alternative import
+    try:
+        import backend.api
+        app = backend.api.app
+        print("✅ Successfully imported app (alternative method)")
+    except Exception as e2:
+        print(f"❌ Alternative import also failed: {e2}")
+        raise
+
+# For PythonAnywhere
+application = app
+
+if __name__ == "__main__":
+    app.run()
+```
+
+### 6. Restart Web App
 
 1. Go back to the "Web" tab in PythonAnywhere
 2. Click "Reload" to restart your web app
 
-### 6. Test the API
+### 7. Test the API
 
 The Flask API endpoints should now be working. You can test them at:
 - `https://yourusername.pythonanywhere.com/api/waves`
 - `https://yourusername.pythonanywhere.com/api/orders`
 
-### 7. Frontend Development
+### 8. Frontend Development
 
 For local development of the React frontend:
 
@@ -96,7 +142,7 @@ npm start
 
 This will run the React dev server on `http://localhost:3000` and proxy API calls to your PythonAnywhere backend.
 
-### 8. Environment Variables
+### 9. Environment Variables
 
 Make sure your `.env` file is properly configured with:
 - Database path
@@ -108,9 +154,9 @@ Make sure your `.env` file is properly configured with:
 If you encounter issues:
 
 1. **Pip Installation Errors:**
-   - Try using `requirements-pythonanywhere.txt` instead of `requirements.txt`
-   - Install packages individually if needed
-   - Some packages may not be available on PythonAnywhere's free tier
+   - Try using `--user` flag: `pip install --user package_name`
+   - Some packages may require system dependencies on PythonAnywhere
+   - Check PythonAnywhere's package availability
 
 2. **Import Errors:**
    - Check the PythonAnywhere error logs
@@ -119,12 +165,19 @@ If you encounter issues:
    - Check that upload directories exist and are writable
 
 3. **OCR/PDF Issues:**
-   - `pytesseract` and `pdf2image` may not work on PythonAnywhere
-   - The app will function without OCR, but receipt processing will be manual
+   - `pytesseract` and `pdf2image` are essential for receipt analysis
+   - If they fail to install, the app will still work but OCR will be disabled
+   - You can manually process receipts without OCR
 
 4. **Database Issues:**
    - Make sure `tickets.db` has proper read/write permissions
-   - Try running the database initialization script
+   - Run the database initialization script
+   - Check that the database file exists and is accessible
+
+5. **WSGI Configuration Issues:**
+   - Make sure the WSGI file is pointing to `backend/api.py` instead of `app.py`
+   - Check that the path in the WSGI file matches your actual repository path
+   - Verify that `backend/api.py` exists in your repository
 
 ### API Endpoints
 
@@ -136,4 +189,15 @@ The main API endpoints are:
 - `/api/analytics` - Analytics data
 - `/api/receipts/*` - Receipt file serving
 
-The old HTML templates have been removed as the app now uses React for the frontend. 
+The old HTML templates have been removed as the app now uses React for the frontend.
+
+### Quick Fix Commands
+
+If you're in a hurry, run these commands in order:
+
+```bash
+cd /home/nishantb/ticket-verification-app
+git pull
+python fix_pythonanywhere.py
+# Then update your WSGI configuration and reload the web app
+``` 
