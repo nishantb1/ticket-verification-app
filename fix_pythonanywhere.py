@@ -36,7 +36,7 @@ def check_packages():
     """Check if required packages are installed"""
     required_packages = [
         'Flask', 'Werkzeug', 'Pillow', 'pytesseract', 
-        'pdf2image', 'openpyxl', 'Jinja2'
+        'pdf2image', 'openpyxl', 'Jinja2', 'flask_cors'
     ]
     
     missing_packages = []
@@ -65,6 +65,8 @@ def install_missing_packages(missing_packages):
                 subprocess.run([sys.executable, '-m', 'pip', 'install', 'pytesseract==0.3.10'], check=True)
             elif package == 'pdf2image':
                 subprocess.run([sys.executable, '-m', 'pip', 'install', 'pdf2image==1.16.3'], check=True)
+            elif package == 'flask_cors':
+                subprocess.run([sys.executable, '-m', 'pip', 'install', 'flask-cors==4.0.0'], check=True)
             else:
                 subprocess.run([sys.executable, '-m', 'pip', 'install', package], check=True)
             print(f"✅ Installed {package}")
