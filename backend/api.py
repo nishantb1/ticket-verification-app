@@ -1478,22 +1478,43 @@ def serve_frontend():
     except FileNotFoundError:
         return jsonify({'success': False, 'message': 'Frontend files not found. Please run "npm run build" in the frontend directory.'}), 500
 
+def get_frontend_build_path():
+    """Get the correct path to the frontend build directory"""
+    # Try different possible paths
+    possible_paths = [
+        'frontend/build',  # When running from project root
+        '../frontend/build',  # When running from backend directory
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend', 'build')  # Absolute path
+    ]
+    
+    for path in possible_paths:
+        if os.path.exists(path) and os.path.exists(os.path.join(path, 'index.html')):
+            return path
+    
+    # If none found, return the most likely path
+    return 'frontend/build'
+
 @app.route('/')
 def serve_root():
     """Serve the React app's index.html for the root route"""
+    build_path = get_frontend_build_path()
     try:
-        return send_from_directory('../frontend/build', 'index.html')
+        return send_from_directory(build_path, 'index.html')
     except FileNotFoundError:
-        return "Frontend build not found. Please run 'npm run build' in the frontend directory.", 404
+        return f"Frontend build not found at {build_path}. Please run 'npm run build' in the frontend directory.", 404
 
 @app.route('/<path:path>')
 def serve_static(path):
     """Serve static files from the React build directory"""
+    build_path = get_frontend_build_path()
     try:
-        return send_from_directory('../frontend/build', path)
+        return send_from_directory(build_path, path)
     except FileNotFoundError:
         # If the file doesn't exist, serve the index.html for client-side routing
-        return send_from_directory('../frontend/build', 'index.html')
+        try:
+            return send_from_directory(build_path, 'index.html')
+        except FileNotFoundError:
+            return f"Frontend build not found at {build_path}. Please run 'npm run build' in the frontend directory.", 404
 
 if __name__ == '__main__':
     init_db()
