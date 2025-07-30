@@ -1,19 +1,13 @@
 import sys
 import os
 
-# Add the project directory to the Python path
-path = '/home/nishantb/ticket-verification-app'
-if path not in sys.path:
-    sys.path.append(path)
-
-# Debug: Print current path and check if backend/api.py exists
-print(f"Current working directory: {os.getcwd()}")
-print(f"Python path: {sys.path}")
-print(f"Looking for backend/api.py in: {path}")
-print(f"backend/api.py exists: {os.path.exists(os.path.join(path, 'backend', 'api.py'))}")
+# Add the current directory to the Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
 
 try:
-    # Import the Flask app from the new backend structure
+    # Import the Flask app from the backend structure
     from backend.api import app
     print("✅ Successfully imported app from backend/api.py")
 except ImportError as e:
@@ -27,7 +21,7 @@ except ImportError as e:
         print(f"❌ Alternative import also failed: {e2}")
         raise
 
-# For PythonAnywhere
+# For PythonAnywhere and other WSGI servers
 application = app
 
 if __name__ == "__main__":

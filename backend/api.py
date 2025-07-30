@@ -4,7 +4,7 @@ import sqlite3
 import re
 import time
 from datetime import datetime, timedelta
-from flask import Flask, request, jsonify, send_file, session
+from flask import Flask, request, jsonify, send_file, session, send_from_directory
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -1468,6 +1468,24 @@ def serve_receipt(filename):
     except Exception as e:
         log_error(logger, e, f"Error serving receipt: {filename}")
         return jsonify({'success': False, 'message': 'Error serving receipt'}), 500
+
+# Serve React frontend
+@app.route('/', methods=['GET'])
+def serve_frontend():
+    """Serve the React frontend application"""
+    try:
+        return send_from_directory('frontend/build', 'index.html')
+    except FileNotFoundError:
+        return jsonify({'success': False, 'message': 'Frontend files not found. Please run "npm run build" in the frontend directory.'}), 500
+
+@app.route('/<path:path>')
+def serve_static(path):
+    """Serve static files from the React build directory"""
+    try:
+        return send_from_directory('frontend/build', path)
+    except FileNotFoundError:
+        # If the file doesn't exist, serve the index.html for client-side routing
+        return send_from_directory('frontend/build', 'index.html')
 
 if __name__ == '__main__':
     init_db()
