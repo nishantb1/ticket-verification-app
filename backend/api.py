@@ -143,7 +143,7 @@ def init_db():
         )
     ''')
     
-    cursor.execute('''
+        cursor.execute('''
         CREATE TABLE IF NOT EXISTS csv_uploads (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             filename TEXT NOT NULL,
@@ -161,14 +161,14 @@ def init_db():
     # Insert default admin user if not exists
     cursor.execute('SELECT COUNT(*) FROM admin_users WHERE username = ?', ('admin',))
     if cursor.fetchone()[0] == 0:
-        cursor.execute('''
+    cursor.execute('''
             INSERT INTO admin_users (username, password_hash, role)
             VALUES (?, ?, ?)
         ''', ('admin', generate_password_hash('admin123'), 'admin'))
     
-    conn.commit()
-    conn.close()
-
+        conn.commit()
+        conn.close()
+        
 # Initialize database
 init_db()
 
@@ -322,7 +322,7 @@ def api_login():
     cursor = conn.cursor()
     cursor.execute('SELECT id, username, password_hash, role FROM admin_users WHERE username = ? AND is_active = 1', (username,))
     user = cursor.fetchone()
-    conn.close()
+        conn.close()
     
     if user and check_password_hash(user[2], password):
         session['admin_logged_in'] = True
@@ -372,9 +372,9 @@ def api_change_password():
     if user and check_password_hash(user[0], old_password):
         new_hash = generate_password_hash(new_password)
         cursor.execute('UPDATE admin_users SET password_hash = ? WHERE username = ?', (new_hash, username))
-        conn.commit()
-        conn.close()
-        
+    conn.commit()
+    conn.close()
+    
         log_admin_action(logger, 'password_change', f"Password changed for: {username}")
         return jsonify({'success': True, 'message': 'Password changed successfully'})
     else:
@@ -746,7 +746,7 @@ def api_get_current_wave():
             'is_active': bool(wave[6]),
             'created_at': wave[7]
         })
-    else:
+                else:
         return jsonify(None)
 
 @app.route('/api/waves', methods=['POST'])
@@ -766,8 +766,8 @@ def api_create_wave():
         return jsonify({'success': False, 'message': 'Prices must be non-negative'}), 400
     
     conn = sqlite3.connect(get_db_path())
-    cursor = conn.cursor()
-    
+        cursor = conn.cursor()
+        
     try:
         cursor.execute('''
             INSERT INTO wave (name, start_date, end_date, boys_price, girls_price, is_active, created_at)
@@ -783,7 +783,7 @@ def api_create_wave():
             'message': 'Wave created successfully',
             'data': {
                 'id': wave_id,
-                'name': name,
+            'name': name,
                 'start_date': start_date,
                 'end_date': end_date,
                 'boys_price': boys_price,
@@ -807,8 +807,8 @@ def api_update_wave(wave_id):
     print(f"Request headers: {dict(request.headers)}")
     
     # Get current wave data first
-    conn = sqlite3.connect(get_db_path())
-    cursor = conn.cursor()
+        conn = sqlite3.connect(get_db_path())
+        cursor = conn.cursor()
     
     try:
         # Get current wave data
@@ -886,8 +886,8 @@ def api_update_wave(wave_id):
 @login_required
 def api_delete_wave(wave_id):
     """API endpoint to delete a wave"""
-    conn = sqlite3.connect(get_db_path())
-    cursor = conn.cursor()
+        conn = sqlite3.connect(get_db_path())
+        cursor = conn.cursor()
     
     try:
         # Check if wave exists
@@ -905,7 +905,7 @@ def api_delete_wave(wave_id):
             return jsonify({'success': False, 'message': f'Cannot delete wave: {order_count} orders are associated with this wave'}), 400
         
         cursor.execute('DELETE FROM wave WHERE id = ?', (wave_id,))
-        conn.commit()
+            conn.commit()
         
         log_admin_action(logger, 'delete_wave', f"Wave {wave_id} deleted by {session.get('admin_username')}")
         
@@ -914,8 +914,8 @@ def api_delete_wave(wave_id):
         conn.rollback()
         return jsonify({'success': False, 'message': f'Error deleting wave: {str(e)}'}), 500
     finally:
-        conn.close()
-
+            conn.close()
+    
 @app.route('/api/analytics', methods=['GET'])
 @login_required
 def api_get_analytics():
@@ -1175,7 +1175,7 @@ def api_upload_csv():
     except Exception as e:
         log_error(logger, e, f"CSV upload failed for file: {original_filename}")
         return jsonify({'success': False, 'message': f'Error uploading CSV: {str(e)}'}), 500
-
+    
 @app.route('/api/csv/uploads', methods=['GET'])
 @login_required
 def api_get_csv_uploads():
@@ -1340,7 +1340,7 @@ def parse_chase_csv(csv_content):
                 amount_str = parts[3].strip() if len(parts) > 3 else ""
                 if amount_str.startswith('$'):
                     amount = float(amount_str.replace('$', '').strip())
-                else:
+        else:
                     try:
                         amount = float(amount_str)
                     except ValueError:
@@ -1379,8 +1379,8 @@ def parse_chase_csv(csv_content):
                     'balance': balance,
                     'payer_identifier': payer_identifier
                 })
-                
-            except Exception as e:
+                             
+    except Exception as e:
                 print(f"Error parsing Chase CSV line: {line}, Error: {e}")
                 continue
     
@@ -1449,11 +1449,11 @@ def parse_venmo_csv(csv_content):
                     'fee': fee,
                     'net_amount': net_amount
                 })
-                
-            except Exception as e:
+        
+    except Exception as e:
                 print(f"Error parsing Venmo CSV line: {line}, Error: {e}")
                 continue
-    
+
     print(f"Venmo CSV Debug - Parsed {len(transactions)} transactions")
     return transactions
 
@@ -1473,4 +1473,5 @@ def serve_receipt(filename):
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port) 

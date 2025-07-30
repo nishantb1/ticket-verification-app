@@ -111,10 +111,10 @@ def log_csv_upload(logger, filename, upload_type, records_processed, new_records
 def log_admin_action(logger, admin_user, action, details=None):
     """Log admin actions"""
     try:
-        log_message = f"Admin Action - User: {admin_user}, Action: {action}"
-        if details:
-            log_message += f", Details: {details}"
-        logger.info(log_message)
+    log_message = f"Admin Action - User: {admin_user}, Action: {action}"
+    if details:
+        log_message += f", Details: {details}"
+    logger.info(log_message)
     except UnicodeEncodeError:
         # Fallback for Unicode issues
         safe_message = f"Admin Action - User: {str(admin_user).encode('ascii', 'ignore').decode()}, Action: {str(action).encode('ascii', 'ignore').decode()}"

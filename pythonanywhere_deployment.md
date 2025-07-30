@@ -92,11 +92,21 @@ path = '/home/nishantb/ticket-verification-app'
 if path not in sys.path:
     sys.path.append(path)
 
-# Debug: Print current path and check if backend/api.py exists
+# Enhanced debugging
 print(f"Current working directory: {os.getcwd()}")
+print(f"Python executable: {sys.executable}")
+print(f"Python version: {sys.version}")
 print(f"Python path: {sys.path}")
 print(f"Looking for backend/api.py in: {path}")
 print(f"backend/api.py exists: {os.path.exists(os.path.join(path, 'backend', 'api.py'))}")
+
+# Test flask_cors import before importing the app
+try:
+    import flask_cors
+    print(f"✅ flask_cors is available at: {flask_cors.__file__}")
+except ImportError as e:
+    print(f"❌ flask_cors import failed: {e}")
+    print(f"Available packages: {[pkg for pkg in sys.modules.keys() if 'flask' in pkg.lower()]}")
 
 try:
     # Import the Flask app from the new backend structure
@@ -119,85 +129,3 @@ application = app
 if __name__ == "__main__":
     app.run()
 ```
-
-### 6. Restart Web App
-
-1. Go back to the "Web" tab in PythonAnywhere
-2. Click "Reload" to restart your web app
-
-### 7. Test the API
-
-The Flask API endpoints should now be working. You can test them at:
-- `https://yourusername.pythonanywhere.com/api/waves`
-- `https://yourusername.pythonanywhere.com/api/orders`
-
-### 8. Frontend Development
-
-For local development of the React frontend:
-
-```bash
-cd frontend
-npm start
-```
-
-This will run the React dev server on `http://localhost:3000` and proxy API calls to your PythonAnywhere backend.
-
-### 9. Environment Variables
-
-Make sure your `.env` file is properly configured with:
-- Database path
-- Upload folders
-- Any API keys
-
-### Troubleshooting
-
-If you encounter issues:
-
-1. **Pip Installation Errors:**
-   - Try using `--user` flag: `pip install --user package_name`
-   - Some packages may require system dependencies on PythonAnywhere
-   - Check PythonAnywhere's package availability
-
-2. **Import Errors:**
-   - Check the PythonAnywhere error logs
-   - Verify all dependencies are installed
-   - Ensure the database file has proper permissions
-   - Check that upload directories exist and are writable
-
-3. **OCR/PDF Issues:**
-   - `pytesseract` and `pdf2image` are essential for receipt analysis
-   - If they fail to install, the app will still work but OCR will be disabled
-   - You can manually process receipts without OCR
-
-4. **Database Issues:**
-   - Make sure `tickets.db` has proper read/write permissions
-   - Run the database initialization script
-   - Check that the database file exists and is accessible
-
-5. **WSGI Configuration Issues:**
-   - Make sure the WSGI file is pointing to `backend/api.py` instead of `app.py`
-   - Check that the path in the WSGI file matches your actual repository path
-   - Verify that `backend/api.py` exists in your repository
-
-### API Endpoints
-
-The main API endpoints are:
-- `/api/waves` - Wave management
-- `/api/orders` - Order management  
-- `/api/auth/*` - Authentication
-- `/api/csv/*` - CSV upload and management
-- `/api/analytics` - Analytics data
-- `/api/receipts/*` - Receipt file serving
-
-The old HTML templates have been removed as the app now uses React for the frontend.
-
-### Quick Fix Commands
-
-If you're in a hurry, run these commands in order:
-
-```bash
-cd /home/nishantb/ticket-verification-app
-git pull
-python fix_pythonanywhere.py
-# Then update your WSGI configuration and reload the web app
-``` 
