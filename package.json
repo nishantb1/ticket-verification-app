@@ -6,6 +6,7 @@
     "install-frontend": "cd frontend && npm install",
     "install-backend": "cd backend && pip install -r requirements.txt",
     "install": "npm run install-frontend && npm run install-backend",
+    "postinstall": "cd frontend && npm install && npm run build",
     "dev": "concurrently \"npm run dev-backend\" \"npm run dev-frontend\"",
     "dev-backend": "cd backend && python api.py",
     "dev-frontend": "cd frontend && npm start",
