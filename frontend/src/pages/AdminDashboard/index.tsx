@@ -24,7 +24,6 @@ import {
   CircularProgress,
   Tabs,
   Tab,
-  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -33,7 +32,6 @@ import {
   Refresh as RefreshIcon,
   Upload as UploadIcon,
   Download as DownloadIcon,
-  Settings as SettingsIcon,
   Visibility as ViewIcon,
   Block as BlockIcon,
   CheckCircle as CheckCircleIcon,
@@ -91,12 +89,12 @@ const AdminDashboard: React.FC = () => {
   }, [tabValue]);
 
   // Queries
-  const { data: waves = [], isLoading: wavesLoading } = useQuery<Wave[]>({
+  const { data: waves = [] } = useQuery<Wave[]>({
     queryKey: ['waves'],
     queryFn: apiService.getWaves,
   });
 
-  const { data: ordersResponse, isLoading: ordersLoading } = useQuery({
+  const { data: ordersResponse } = useQuery({
     queryKey: ['orders'],
     queryFn: () => apiService.getOrders(),
   });
@@ -376,7 +374,6 @@ const AdminDashboard: React.FC = () => {
 
   const pendingOrders = orders.filter((order: Order) => order.status === 'Pending');
   const approvedOrders = orders.filter((order: Order) => order.status === 'Approved');
-  const rejectedOrders = orders.filter((order: Order) => order.status === 'Rejected');
 
   const handleToggleWaveStatus = async (wave: Wave) => {
     const newStatus = !wave.is_active;

@@ -2,7 +2,6 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { 
   Order, 
   Wave, 
-  Transaction, 
   VenmoTransaction, 
   ZelleTransaction,
   CsvUpload,
