@@ -1478,14 +1478,22 @@ def serve_frontend():
     except FileNotFoundError:
         return jsonify({'success': False, 'message': 'Frontend files not found. Please run "npm run build" in the frontend directory.'}), 500
 
+@app.route('/')
+def serve_root():
+    """Serve the React app's index.html for the root route"""
+    try:
+        return send_from_directory('../frontend/build', 'index.html')
+    except FileNotFoundError:
+        return "Frontend build not found. Please run 'npm run build' in the frontend directory.", 404
+
 @app.route('/<path:path>')
 def serve_static(path):
     """Serve static files from the React build directory"""
     try:
-        return send_from_directory('frontend/build', path)
+        return send_from_directory('../frontend/build', path)
     except FileNotFoundError:
         # If the file doesn't exist, serve the index.html for client-side routing
-        return send_from_directory('frontend/build', 'index.html')
+        return send_from_directory('../frontend/build', 'index.html')
 
 if __name__ == '__main__':
     init_db()
