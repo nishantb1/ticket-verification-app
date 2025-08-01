@@ -35,11 +35,29 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs('csv_uploads', exist_ok=True)
 os.makedirs('static', exist_ok=True)
 
+# Ensure database directory exists for persistent storage
+db_path = get_db_path()
+db_dir = os.path.dirname(db_path)
+if db_dir:
+    os.makedirs(db_dir, exist_ok=True)
+
 logger.info("Application initialized successfully")
 
 def get_db_path():
-    """Get the absolute path to the database file"""
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tickets.db')
+    """Get the database file path"""
+    # Use environment variable for database path (for persistent storage on Render)
+    db_path = os.environ.get('DATABASE_PATH', 'tickets.db')
+    
+    # If it's just a filename, make it relative to the app directory
+    if not os.path.dirname(db_path):
+        db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), db_path)
+    
+    # Ensure the directory exists
+    db_dir = os.path.dirname(db_path)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+    
+    return db_path
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS

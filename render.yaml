@@ -9,7 +9,9 @@ services:
         value: 3.11.0
       - key: SECRET_KEY
         generateValue: true
+      - key: DATABASE_PATH
+        value: /opt/render/project/src/data/tickets.db
     disk:
       name: data
-      mountPath: /opt/render/project/src
+      mountPath: /opt/render/project/src/data
       sizeGB: 1
