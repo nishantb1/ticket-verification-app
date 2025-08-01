@@ -1234,7 +1234,9 @@ function editWave(waveId) {
                             </div>
                             <div class="modal-footer">
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="button" class="btn btn-primary" onclick="saveWaveEdit(${wave.id})">Save Changes</button>
+                                <button type="button" class="btn btn-primary" onclick="saveWaveEdit(${wave.id})" id="saveWaveBtn">
+                                    <i class="fas fa-save me-2"></i>Save Changes
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1267,6 +1269,18 @@ function editWave(waveId) {
 // Save wave edit function
 function saveWaveEdit(waveId) {
     const form = document.getElementById('editWaveForm');
+    const saveBtn = document.getElementById('saveWaveBtn');
+    
+    if (!form) {
+        showNotification('Form not found', 'error');
+        return;
+    }
+    
+    // Show loading state
+    const originalText = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+    
     const formData = new FormData(form);
     
     fetch(`/admin/waves/${waveId}`, {
@@ -1284,13 +1298,18 @@ function saveWaveEdit(waveId) {
             loadWaves();
             loadCurrentWaveStatus();
             
-            alert('Wave updated successfully!');
+            showNotification('Wave updated successfully!', 'success');
         } else {
-            alert('Error updating wave: ' + data.error);
+            showNotification('Error updating wave: ' + data.error, 'error');
         }
     })
     .catch(error => {
-        alert('Error updating wave: ' + error);
+        showNotification('Error updating wave: ' + error, 'error');
+    })
+    .finally(() => {
+        // Restore button state
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalText;
     });
 }
 
