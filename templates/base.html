@@ -383,21 +383,7 @@
             return new bootstrap.Tooltip(tooltipTriggerEl);
         });
 
-        // Add loading states for buttons
-        document.querySelectorAll('button[type="submit"]').forEach(button => {
-            button.addEventListener('click', function() {
-                if (this.form && this.form.checkValidity()) {
-                    this.disabled = true;
-                    const originalText = this.innerHTML;
-                    this.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
-                    
-                    setTimeout(() => {
-                        this.disabled = false;
-                        this.innerHTML = originalText;
-                    }, 5000);
-                }
-            });
-        });
+        // Removed automatic loading states that were preventing form submission
 
         // Enhanced animations
         const observerOptions = {

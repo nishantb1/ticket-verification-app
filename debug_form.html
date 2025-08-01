@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Form</title>
+</head>
+<body>
+    <h2>Debug Form Submission</h2>
+    <form method="POST" action="/admin/login" onsubmit="alert('Form submitting!'); return true;">
+        <p>Username: <input type="text" name="username" value="admin" required></p>
+        <p>Password: <input type="password" name="password" value="admin123" required></p>
+        <p><input type="submit" value="Login"></p>
+    </form>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Debug form loaded');
+        const form = document.querySelector('form');
+        form.addEventListener('submit', function(e) {
+            console.log('Form submit event triggered');
+            console.log('Form method:', this.method);
+            console.log('Form action:', this.action);
+        });
+    });
+    </script>
+</body>
+</html>
