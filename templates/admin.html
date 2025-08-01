@@ -4,65 +4,35 @@
 
 {% block content %}
 <!-- Enhanced Header with Stats -->
-<div class="level mb-5">
-    <div class="level-left">
-        <div class="level-item">
-            <div>
-                <h1 class="title is-3 mb-1">
-                    <span class="icon">
-                        <i class="fas fa-tachometer-alt"></i>
-                    </span>
-                    <span class="greek-letters">ΔΕΨ</span> Admin Dashboard
-                </h1>
-                <p class="subtitle is-6 has-text-grey">Welcome, {{ session.admin_username }} ({{ session.admin_role|title }})</p>
-            </div>
-        </div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1">
+            <i class="fas fa-tachometer-alt me-2"></i><span class="greek-letters">ΔΕΨ</span> Admin Dashboard
+        </h2>
+        <p class="text-muted mb-0">Welcome, {{ session.admin_username }} ({{ session.admin_role|title }})</p>
     </div>
-    <div class="level-right">
-        <div class="level-item">
-            <div class="buttons">
-                <button class="button is-primary" onclick="location.reload()">
-                    <span class="icon">
-                        <i class="fas fa-sync-alt"></i>
-                    </span>
-                    <span>Refresh</span>
-                </button>
-                <button class="button is-success" onclick="openModal('csvModal')">
-                    <span class="icon">
-                        <i class="fas fa-upload"></i>
-                    </span>
-                    <span>Upload CSV</span>
-                </button>
-                <a href="{{ url_for('rerun_matching') }}" class="button is-info">
-                    <span class="icon">
-                        <i class="fas fa-sync-alt"></i>
-                    </span>
-                    <span>Re-run Matching</span>
-                </a>
-                <button class="button is-warning" onclick="openModal('waveModal')">
-                    <span class="icon">
-                        <i class="fas fa-cog"></i>
-                    </span>
-                    <span>Manage Waves</span>
-                </button>
-                <a href="{{ url_for('export_excel') }}" class="button is-light">
-                    <span class="icon">
-                        <i class="fas fa-file-excel"></i>
-                    </span>
-                    <span>Export Excel</span>
-                </a>
-                <a href="{{ url_for('csv_management') }}" class="button is-info">
-                    <span class="icon">
-                        <i class="fas fa-file-csv"></i>
-                    </span>
-                    <span>CSV Management</span>
-                </a>
-                <a href="{{ url_for('view_logs') }}" class="button is-outlined">
-                    <span class="icon">
-                        <i class="fas fa-file-alt"></i>
-                    </span>
-                    <span>Logs</span>
-                </a>
+    <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-primary" onclick="location.reload()">
+            <i class="fas fa-sync-alt me-2"></i>Refresh
+        </button>
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#csvModal">
+            <i class="fas fa-upload me-2"></i>Upload CSV
+        </button>
+        <a href="{{ url_for('rerun_matching') }}" class="btn btn-info">
+            <i class="fas fa-sync-alt me-2"></i>Re-run Matching
+        </a>
+        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#waveModal">
+            <i class="fas fa-cog me-2"></i>Manage Waves
+        </button>
+        <a href="{{ url_for('export_excel') }}" class="btn btn-secondary">
+            <i class="fas fa-file-excel me-2"></i>Export Excel
+        </a>
+        <a href="{{ url_for('csv_management') }}" class="btn btn-info">
+            <i class="fas fa-file-csv me-2"></i>CSV Management
+        </a>
+        <a href="{{ url_for('view_logs') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-file-alt me-2"></i>Logs
+        </a>
                 <div class="dropdown">
                     <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
                         <i class="fas fa-user me-2"></i>Admin
@@ -83,25 +53,17 @@
 </div>
 
 <!-- Quick Stats Cards -->
-<div class="columns is-multiline mb-5">
-    <div class="column is-3">
-        <div class="card has-background-primary has-text-white stats-card">
-            <div class="card-content">
-                <div class="level">
-                    <div class="level-left">
-                        <div class="level-item">
-                            <div>
-                                <p class="title is-2 has-text-white mb-1">{{ pending|length }}</p>
-                                <p class="subtitle is-6 has-text-white">Pending Orders</p>
-                            </div>
-                        </div>
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white stats-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="mb-0">{{ pending|length }}</h4>
+                        <small>Pending Orders</small>
                     </div>
-                    <div class="level-right">
-                        <div class="level-item">
-                            <span class="icon is-large">
-                                <i class="fas fa-clock fa-2x"></i>
-                            </span>
-                        </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-clock fa-2x opacity-75"></i>
                     </div>
                 </div>
             </div>
@@ -188,55 +150,27 @@
 <!-- Enhanced Kanban Board -->
 <div class="row mb-4">
     <div class="col-12">
-        <div class="level mb-4">
-            <div class="level-left">
-                <div class="level-item">
-                    <h2 class="title is-4">
-                        <span class="icon">
-                            <i class="fas fa-columns"></i>
-                        </span>
-                        <span>Order Management</span>
-                    </h2>
-                </div>
-            </div>
-            <div class="level-right">
-                <div class="level-item">
-                    <div class="field is-grouped is-grouped-multiline">
-                        <div class="control">
-                            <input class="input is-small" type="text" id="searchOrders" placeholder="Search by name, email, UUID..." style="width: 250px;">
-                        </div>
-                        <div class="control">
-                            <div class="select is-small">
-                                <select id="filterStatus">
-                                    <option value="">All Statuses</option>
-                                    <option value="Pending">Pending</option>
-                                    <option value="Verified">Verified</option>
-                                    <option value="Flagged">Flagged</option>
-                                    <option value="Completed">Completed</option>
-                                    <option value="Rejected">Rejected</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="control">
-                            <div class="select is-small">
-                                <select id="filterWave">
-                                    <option value="">All Waves</option>
-                                    <option value="1">Wave 1</option>
-                                    <option value="2">Wave 2</option>
-                                    <option value="3">Wave 3</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="control">
-                            <button class="button is-light is-small" onclick="clearFilters()">
-                                <span class="icon is-small">
-                                    <i class="fas fa-times"></i>
-                                </span>
-                                <span>Clear</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4><i class="fas fa-table me-2"></i>Order Management</h4>
+            <div class="d-flex gap-2 flex-wrap">
+                <input type="text" class="form-control form-control-sm" id="searchOrders" placeholder="Search by name, email, UUID..." style="width: 250px;">
+                <select class="form-select form-select-sm" id="filterStatus" style="width: 150px;">
+                    <option value="">All Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Verified">Verified</option>
+                    <option value="Flagged">Flagged</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Rejected">Rejected</option>
+                </select>
+                <select class="form-select form-select-sm" id="filterWave" style="width: 150px;">
+                    <option value="">All Waves</option>
+                    <option value="1">Wave 1</option>
+                    <option value="2">Wave 2</option>
+                    <option value="3">Wave 3</option>
+                </select>
+                <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()">
+                    <i class="fas fa-times me-1"></i>Clear
+                </button>
             </div>
         </div>
     </div>
@@ -466,7 +400,7 @@
 <div id="tableView" class="order-view">
     <div class="card">
         <header class="card-header">
-            <div class="card-header-title">
+            <div class="card-header">
                 <span class="icon">
                     <i class="fas fa-table"></i>
                 </span>
@@ -491,7 +425,7 @@
                         </button>
                     </div>
                     <div class="control">
-                        <span class="tag is-light" id="selectedCount">0 selected</span>
+                        <span class="badge bg-light text-dark" id="selectedCount">0 selected</span>
                     </div>
                 </div>
             </div>
@@ -523,7 +457,7 @@
             <div class="level p-4 has-background-light">
                 <div class="level-left">
                     <div class="level-item">
-                        <span class="has-text-grey" id="tableInfo">Showing 0 orders</span>
+                        <span class="text-muted" id="tableInfo">Showing 0 orders</span>
                     </div>
                 </div>
                 <div class="level-right">
@@ -948,26 +882,26 @@ function renderFilteredTable(filteredOrders) {
             <td>
                 <div>
                     <strong>${order.name}</strong><br>
-                    <small class="has-text-grey">${order.email}</small>
+                    <small class="text-muted">${order.email}</small>
                 </div>
             </td>
             <td>
-                <span class="tag is-light">${order.tickets}</span>
+                <span class="badge bg-light text-dark">${order.tickets}</span>
             </td>
             <td>
-                <strong class="has-text-success">${order.amount}</strong>
+                <strong class="text-success">${order.amount}</strong>
             </td>
             <td>
-                <small class="has-text-grey">${order.created}</small>
+                <small class="text-muted">${order.created}</small>
             </td>
             <td>
                 ${order.receipt ? 
-                    `<button class="button is-info is-small" onclick="openReceiptModal('/receipt/${order.receipt}')" title="View Receipt">
+                    `<button class="btn btn-info btn-sm" onclick="openReceiptModal('/receipt/${order.receipt}')" title="View Receipt">
                         <span class="icon is-small">
                             <i class="fas fa-receipt"></i>
                         </span>
                     </button>` : 
-                    `<span class="tag is-light">No Receipt</span>`
+                    `<span class="badge bg-light text-dark">No Receipt</span>`
                 }
             </td>
             <td>
@@ -982,7 +916,7 @@ function renderFilteredTable(filteredOrders) {
                             <i class="fas fa-times"></i>
                         </span>
                     </button>
-                    <button class="button is-info is-small" onclick="editOrder(${order.id})" title="Edit">
+                    <button class="btn btn-info btn-sm" onclick="editOrder(${order.id})" title="Edit">
                         <span class="icon is-small">
                             <i class="fas fa-edit"></i>
                         </span>
@@ -1069,26 +1003,26 @@ function renderTablePage() {
             <td>
                 <div>
                     <strong>${order.name}</strong><br>
-                    <small class="has-text-grey">${order.email}</small>
+                    <small class="text-muted">${order.email}</small>
                 </div>
             </td>
             <td>
-                <span class="tag is-light">${order.tickets}</span>
+                <span class="badge bg-light text-dark">${order.tickets}</span>
             </td>
             <td>
-                <strong class="has-text-success">${order.amount}</strong>
+                <strong class="text-success">${order.amount}</strong>
             </td>
             <td>
-                <small class="has-text-grey">${order.created}</small>
+                <small class="text-muted">${order.created}</small>
             </td>
             <td>
                 ${order.receipt ? 
-                    `<button class="button is-info is-small" onclick="openReceiptModal('/receipt/${order.receipt}')" title="View Receipt">
+                    `<button class="btn btn-info btn-sm" onclick="openReceiptModal('/receipt/${order.receipt}')" title="View Receipt">
                         <span class="icon is-small">
                             <i class="fas fa-receipt"></i>
                         </span>
                     </button>` : 
-                    `<span class="tag is-light">No Receipt</span>`
+                    `<span class="badge bg-light text-dark">No Receipt</span>`
                 }
             </td>
             <td>
@@ -1103,7 +1037,7 @@ function renderTablePage() {
                             <i class="fas fa-times"></i>
                         </span>
                     </button>
-                    <button class="button is-info is-small" onclick="editOrder(${order.id})" title="Edit">
+                    <button class="btn btn-info btn-sm" onclick="editOrder(${order.id})" title="Edit">
                         <span class="icon is-small">
                             <i class="fas fa-edit"></i>
                         </span>

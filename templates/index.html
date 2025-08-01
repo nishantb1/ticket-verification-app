@@ -3,27 +3,20 @@
 {% block title %}Submit Order - ΔΕΨ Ticket Verifier{% endblock %}
 
 {% block content %}
-<div class="columns is-centered">
-    <div class="column is-8">
-        <div class="card">
-            <header class="card-header">
-                <p class="card-header-title">
-                    <span class="icon">
-                        <i class="fas fa-ticket-alt"></i>
-                    </span>
-                    <span>Submit Your Order</span>
-                </p>
-            </header>
-            <div class="card-content">
-                <div class="content">
-                    <p class="has-text-grey">
-                        <span class="icon">
-                            <i class="fas fa-info-circle"></i>
-                        </span>
-                        Fill out the form below and upload your payment receipt
-                    </p>
-                </div>
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-lg border-0">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-ticket-alt me-2"></i>
+                    Submit Your Order
+                </h5>
+            </div>
             <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Fill out the form below and upload your payment receipt
+                </div>
                 {% if wave %}
                 <div class="alert alert-info">
                     <strong><span class="greek-letters">ΔΕΨ</span> Current Wave:</strong> {{ wave.name }} 
