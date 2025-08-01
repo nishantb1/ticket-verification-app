@@ -131,13 +131,14 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Change button content
             const originalHTML = loginBtn.innerHTML;
-            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Logging in...';
+            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
             
-            // Re-enable button after 10 seconds as fallback
+            // Re-enable button after 15 seconds as fallback
             setTimeout(() => {
                 loginBtn.disabled = false;
                 loginBtn.innerHTML = originalHTML;
-            }, 10000);
+                console.log('Login timeout - button re-enabled');
+            }, 15000);
         });
     }
 });

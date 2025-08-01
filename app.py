@@ -33,6 +33,7 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 # Ensure upload folders exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs('csv_uploads', exist_ok=True)
+os.makedirs('static', exist_ok=True)
 
 logger.info("Application initialized successfully")
 
@@ -179,13 +180,23 @@ def init_db():
     
     # Insert default admin user if none exists
     cursor.execute('SELECT COUNT(*) FROM admin_users')
-    if cursor.fetchone()[0] == 0:
+    admin_count = cursor.fetchone()[0]
+    logger.info(f"Existing admin users count: {admin_count}")
+    
+    if admin_count == 0:
         default_password = generate_password_hash('admin123')
         cursor.execute('''
-            INSERT INTO admin_users (username, email, password_hash, role)
-            VALUES (?, ?, ?, ?)
-        ''', ('admin', 'admin@depsi.com', default_password, 'super_admin'))
+            INSERT INTO admin_users (username, email, password_hash, role, is_active)
+            VALUES (?, ?, ?, ?, ?)
+        ''', ('admin', 'admin@depsi.com', default_password, 'super_admin', 1))
         logger.info("Default admin user created: admin/admin123")
+        
+        # Verify the user was created
+        cursor.execute('SELECT COUNT(*) FROM admin_users WHERE username = ?', ('admin',))
+        verify_count = cursor.fetchone()[0]
+        logger.info(f"Admin user verification count: {verify_count}")
+    else:
+        logger.info("Admin users already exist, skipping creation")
     
     # Insert default waves if they don't exist
     cursor.execute('SELECT COUNT(*) FROM wave')
@@ -887,37 +898,102 @@ def submit_order():
         flash(f'Error submitting order: {str(e)}', 'error')
         return redirect(url_for('index'))
 
+@app.route('/admin/debug')
+def admin_debug():
+    """Debug endpoint to check admin users (remove in production)"""
+    try:
+        conn = sqlite3.connect(get_db_path())
+        cursor = conn.cursor()
+        
+        # Check if admin_users table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='admin_users'")
+        table_exists = cursor.fetchone()
+        
+        if not table_exists:
+            return jsonify({
+                'error': 'admin_users table does not exist',
+                'solution': 'Database not properly initialized'
+            })
+        
+        # Get all admin users
+        cursor.execute('SELECT id, username, email, role, is_active, created_at FROM admin_users')
+        users = cursor.fetchall()
+        
+        # Get table structure
+        cursor.execute('PRAGMA table_info(admin_users)')
+        columns = cursor.fetchall()
+        
+        conn.close()
+        
+        return jsonify({
+            'table_exists': True,
+            'total_users': len(users),
+            'users': [{'id': u[0], 'username': u[1], 'email': u[2], 'role': u[3], 'active': u[4], 'created': u[5]} for u in users],
+            'table_columns': [{'name': c[1], 'type': c[2]} for c in columns]
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     """Admin login page"""
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        
-        conn = sqlite3.connect(get_db_path())
-        cursor = conn.cursor()
-        cursor.execute('SELECT id, username, password_hash, role FROM admin_users WHERE username = ? AND is_active = 1', (username,))
-        user = cursor.fetchone()
-        conn.close()
-        
-        if user and check_password_hash(user[2], password):
-            session['admin_logged_in'] = True
-            session['admin_user_id'] = user[0]
-            session['admin_username'] = user[1]
-            session['admin_role'] = user[3]
+        try:
+            username = request.form.get('username', '').strip()
+            password = request.form.get('password', '').strip()
             
-            # Update last login
+            logger.info(f"Login attempt for username: {username}")
+            
+            if not username or not password:
+                flash('Username and password are required', 'error')
+                return render_template('admin_login.html')
+            
             conn = sqlite3.connect(get_db_path())
             cursor = conn.cursor()
-            cursor.execute('UPDATE admin_users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', (user[0],))
-            conn.commit()
+            
+            # Check if any admin users exist
+            cursor.execute('SELECT COUNT(*) FROM admin_users')
+            admin_count = cursor.fetchone()[0]
+            logger.info(f"Total admin users in database: {admin_count}")
+            
+            # Get user details
+            cursor.execute('SELECT id, username, password_hash, role, is_active FROM admin_users WHERE username = ?', (username,))
+            user = cursor.fetchone()
+            
+            if user:
+                logger.info(f"Found user: {user[1]}, Active: {user[4]}")
+                if user[4] == 1 and check_password_hash(user[2], password):
+                    session['admin_logged_in'] = True
+                    session['admin_user_id'] = user[0]
+                    session['admin_username'] = user[1]
+                    session['admin_role'] = user[3]
+                    
+                    # Update last login
+                    cursor.execute('UPDATE admin_users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', (user[0],))
+                    conn.commit()
+                    conn.close()
+                    
+                    logger.info(f"Successful login for user: {username}")
+                    log_audit_action('login', f'Admin {username} logged in')
+                    flash('Login successful!', 'success')
+                    return redirect(url_for('admin_dashboard'))
+                else:
+                    logger.warning(f"Invalid password for user: {username}")
+                    flash('Invalid username or password', 'error')
+            else:
+                logger.warning(f"User not found: {username}")
+                # List all users for debugging (remove in production)
+                cursor.execute('SELECT username FROM admin_users')
+                all_users = cursor.fetchall()
+                logger.info(f"Available users: {[u[0] for u in all_users]}")
+                flash('Invalid username or password', 'error')
+            
             conn.close()
             
-            log_audit_action('login', f'Admin {username} logged in')
-            flash('Login successful!', 'success')
-            return redirect(url_for('admin_dashboard'))
-        else:
-            flash('Invalid username or password', 'error')
+        except Exception as e:
+            logger.error(f"Login error: {e}")
+            flash('Login system error. Please try again.', 'error')
     
     return render_template('admin_login.html')
 
@@ -1450,6 +1526,11 @@ def update_order():
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/favicon.ico')
+def favicon():
+    """Serve favicon"""
+    return send_file('static/favicon.ico', mimetype='image/vnd.microsoft.icon')
 
 @app.route('/receipt/<path:filename>')
 def serve_receipt(filename):
