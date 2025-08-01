@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>{% block title %}ΔΕΨ Ticket Verifier{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" rel="stylesheet">
@@ -314,56 +314,70 @@
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark">
+    <nav class="navbar" role="navigation" aria-label="main navigation">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">
-                <span class="greek-letters">ΔΕΨ</span> Ticket Verifier
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('index') }}">
-                            <i class="fas fa-ticket-alt me-1"></i>Submit Order
-                        </a>
-                    </li>
+            <div class="navbar-brand">
+                <a class="navbar-item" href="{{ url_for('index') }}">
+                    <span class="greek-letters">ΔΕΨ</span> Ticket Verifier
+                </a>
+                
+                <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarMenu">
+                    <span aria-hidden="true"></span>
+                    <span aria-hidden="true"></span>
+                    <span aria-hidden="true"></span>
+                </a>
+            </div>
+            
+            <div id="navbarMenu" class="navbar-menu">
+                <div class="navbar-end">
+                    <a class="navbar-item" href="{{ url_for('index') }}">
+                        <span class="icon">
+                            <i class="fas fa-ticket-alt"></i>
+                        </span>
+                        <span>Submit Order</span>
+                    </a>
+                    
                     {% if session.admin_logged_in %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
-                                <i class="fas fa-tachometer-alt me-1"></i>Admin
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('analytics') }}">
-                                <i class="fas fa-chart-bar me-1"></i>Analytics
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('admin_logout') }}">
-                                <i class="fas fa-sign-out-alt me-1"></i>Logout
-                            </a>
-                        </li>
+                        <a class="navbar-item" href="{{ url_for('admin_dashboard') }}">
+                            <span class="icon">
+                                <i class="fas fa-tachometer-alt"></i>
+                            </span>
+                            <span>Admin</span>
+                        </a>
+                        
+                        <a class="navbar-item" href="{{ url_for('analytics') }}">
+                            <span class="icon">
+                                <i class="fas fa-chart-bar"></i>
+                            </span>
+                            <span>Analytics</span>
+                        </a>
+                        
+                        <a class="navbar-item" href="{{ url_for('admin_logout') }}">
+                            <span class="icon">
+                                <i class="fas fa-sign-out-alt"></i>
+                            </span>
+                            <span>Logout</span>
+                        </a>
                     {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('admin_login') }}">
-                                <i class="fas fa-sign-in-alt me-1"></i>Admin Login
-                            </a>
-                        </li>
+                        <a class="navbar-item" href="{{ url_for('admin_login') }}">
+                            <span class="icon">
+                                <i class="fas fa-sign-in-alt"></i>
+                            </span>
+                            <span>Admin Login</span>
+                        </a>
                     {% endif %}
-                </ul>
+                </div>
             </div>
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <div class="container main-container">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    <div class="notification is-{{ 'danger' if category == 'error' else ('primary' if category == 'info' else category) }}">
+                        <button class="delete" onclick="this.parentElement.remove()"></button>
                         {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                 {% endfor %}
             {% endif %}
@@ -372,7 +386,24 @@
         {% block content %}{% endblock %}
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    // Bulma navbar burger toggle
+    document.addEventListener('DOMContentLoaded', () => {
+        const $navbarBurgers = Array.prototype.slice.call(document.querySelectorAll('.navbar-burger'), 0);
+        
+        if ($navbarBurgers.length > 0) {
+            $navbarBurgers.forEach(el => {
+                el.addEventListener('click', () => {
+                    const target = el.dataset.target;
+                    const $target = document.getElementById(target);
+                    
+                    el.classList.toggle('is-active');
+                    $target.classList.toggle('is-active');
+                });
+            });
+        }
+    });
+    </script>
     
     <!-- Enhanced UI JavaScript -->
     <script>
