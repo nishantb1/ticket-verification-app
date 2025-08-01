@@ -3,6 +3,5 @@ Werkzeug
 Pillow
 pytesseract
 pdf2image
-openpyxl
-flask-cors
 gunicorn
+openpyxl

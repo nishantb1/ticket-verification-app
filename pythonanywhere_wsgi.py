@@ -13,19 +13,12 @@ print(f"Looking for backend/api.py in: {path}")
 print(f"backend/api.py exists: {os.path.exists(os.path.join(path, 'backend', 'api.py'))}")
 
 try:
-    # Import the Flask app from the new backend structure
-    from backend.api import app
-    print("✅ Successfully imported app from backend/api.py")
+    # Import the Flask app from app.py
+    from app import app
+    print("✅ Successfully imported app from app.py")
 except ImportError as e:
     print(f"❌ Import error: {e}")
-    # Try alternative import
-    try:
-        import backend.api
-        app = backend.api.app
-        print("✅ Successfully imported app (alternative method)")
-    except Exception as e2:
-        print(f"❌ Alternative import also failed: {e2}")
-        raise
+    raise
 
 # For PythonAnywhere
 application = app

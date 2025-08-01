@@ -29,27 +29,49 @@ def setup_logging(app_name='ΔΕΨ Ticket Verifier', log_level='INFO', log_file=
     # Clear any existing handlers
     logger.handlers.clear()
     
-    # Console handler (for development)
-    console_handler = logging.StreamHandler()
+    # Console handler (for development) with UTF-8 encoding
+    import sys
+    console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(log_format)
+    # Set encoding to UTF-8 to handle Unicode characters
+    try:
+        if hasattr(console_handler.stream, 'reconfigure'):
+            console_handler.stream.reconfigure(encoding='utf-8')
+        elif hasattr(console_handler.stream, 'buffer'):
+            # For Windows, wrap the stream to handle Unicode
+            import io
+            console_handler.stream = io.TextIOWrapper(
+                console_handler.stream.buffer, 
+                encoding='utf-8', 
+                errors='replace'
+            )
+    except Exception:
+        # Fallback: create a safe formatter that replaces problematic characters
+        safe_format = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        console_handler.setFormatter(safe_format)
     logger.addHandler(console_handler)
     
-    # File handler (for all logs)
+    # File handler (for all logs) with UTF-8 encoding
     file_handler = logging.handlers.RotatingFileHandler(
         log_file,
         maxBytes=10*1024*1024,  # 10MB
-        backupCount=5
+        backupCount=5,
+        encoding='utf-8'
     )
     file_handler.setLevel(getattr(logging, log_level.upper()))
     file_handler.setFormatter(log_format)
     logger.addHandler(file_handler)
     
-    # Error file handler (for errors only)
+    # Error file handler (for errors only) with UTF-8 encoding
     error_handler = logging.handlers.RotatingFileHandler(
         'logs/errors.log',
         maxBytes=10*1024*1024,  # 10MB
-        backupCount=5
+        backupCount=5,
+        encoding='utf-8'
     )
     error_handler.setLevel(logging.ERROR)
     error_handler.setFormatter(log_format)

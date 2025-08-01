@@ -7,19 +7,12 @@ if current_dir not in sys.path:
     sys.path.append(current_dir)
 
 try:
-    # Import the Flask app from the backend structure
-    from backend.api import app
-    print("✅ Successfully imported app from backend/api.py")
+    # Import the Flask app from app.py
+    from app import app
+    print("✅ Successfully imported app from app.py")
 except ImportError as e:
     print(f"❌ Import error: {e}")
-    # Try alternative import
-    try:
-        import backend.api
-        app = backend.api.app
-        print("✅ Successfully imported app (alternative method)")
-    except Exception as e2:
-        print(f"❌ Alternative import also failed: {e2}")
-        raise
+    raise
 
 # For PythonAnywhere and other WSGI servers
 application = app
