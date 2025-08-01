@@ -898,6 +898,11 @@ def submit_order():
         flash(f'Error submitting order: {str(e)}', 'error')
         return redirect(url_for('index'))
 
+@app.route('/test-login')
+def test_login():
+    """Simple test login page"""
+    return send_file('test_login.html')
+
 @app.route('/admin/debug')
 def admin_debug():
     """Debug endpoint to check admin users (remove in production)"""

@@ -25,7 +25,7 @@
                         {% endif %}
                     {% endwith %}
                     
-                    <form method="POST" action="{{ url_for('admin_login') }}" id="loginForm">
+                    <form method="POST" action="/admin/login" id="loginForm">
                         <div class="mb-3">
                             <label for="username" class="form-label">
                                 <i class="fas fa-user me-2"></i>Username
@@ -43,7 +43,6 @@
                         <div class="d-grid">
                             <button type="submit" class="btn btn-primary" id="loginBtn">
                                 <i class="fas fa-sign-in-alt me-2"></i>Login
-                                <span class="spinner-border spinner-border-sm ms-2 d-none" id="loginSpinner"></span>
                             </button>
                         </div>
                     </form>
@@ -123,11 +122,16 @@ document.addEventListener('DOMContentLoaded', function() {
     const loginBtn = document.getElementById('loginBtn');
     const loginSpinner = document.getElementById('loginSpinner');
     
-    if (loginForm) {
+    if (loginForm && loginBtn) {
         loginForm.addEventListener('submit', function(e) {
+            // Don't prevent default - let the form submit normally
+            console.log('Form submitting...');
+            
             // Show loading state
             loginBtn.disabled = true;
-            loginSpinner.classList.remove('d-none');
+            if (loginSpinner) {
+                loginSpinner.classList.remove('d-none');
+            }
             
             // Change button content
             const originalHTML = loginBtn.innerHTML;
@@ -140,6 +144,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log('Login timeout - button re-enabled');
             }, 15000);
         });
+        
+        // Also handle button click directly
+        loginBtn.addEventListener('click', function(e) {
+            console.log('Login button clicked');
+            // Validate form
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            
+            if (!username || !password) {
+                e.preventDefault();
+                alert('Please enter both username and password');
+                return false;
+            }
+        });
+    } else {
+        console.error('Login form or button not found');
     }
 });
 </script>
