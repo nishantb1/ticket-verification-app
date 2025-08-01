@@ -68,8 +68,18 @@ def login_required(f):
 
 def init_db():
     """Initialize the database with tables"""
-    # Use absolute path for database
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tickets.db')
+    db_path = get_db_path()
+    logger.info(f"Initializing database at: {db_path}")
+    
+    # Check if database already exists
+    db_exists = os.path.exists(db_path)
+    logger.info(f"Database exists: {db_exists}")
+    
+    if db_exists:
+        # Check database size
+        db_size = os.path.getsize(db_path)
+        logger.info(f"Database size: {db_size} bytes")
+    
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     

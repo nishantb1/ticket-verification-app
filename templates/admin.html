@@ -1178,11 +1178,14 @@ document.getElementById('addWaveForm').addEventListener('submit', function(e) {
 
 // Edit wave function
 function editWave(waveId) {
+    console.log('Edit wave called for ID:', waveId);
+    
     fetch(`/admin/waves/${waveId}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 const wave = data.wave;
+                console.log('Wave data received:', wave);
                 
                 // Create edit form modal
                 const editModal = document.createElement('div');
@@ -1233,7 +1236,9 @@ function editWave(waveId) {
                                 </form>
                             </div>
                             <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    <i class="fas fa-times me-2"></i>Cancel
+                                </button>
                                 <button type="button" class="btn btn-primary" onclick="saveWaveEdit(${wave.id})" id="saveWaveBtn">
                                     <i class="fas fa-save me-2"></i>Save Changes
                                 </button>
@@ -1250,11 +1255,19 @@ function editWave(waveId) {
                 
                 // Add modal to page and show it
                 document.body.appendChild(editModal);
-                const modal = new bootstrap.Modal(editModal);
-                modal.show();
+                console.log('Modal added to DOM');
+                
+                // Wait a moment for DOM to update, then show modal
+                setTimeout(() => {
+                    const modal = new bootstrap.Modal(editModal);
+                    console.log('Bootstrap modal created');
+                    modal.show();
+                    console.log('Modal should be visible now');
+                }, 100);
                 
                 // Clean up when modal is hidden
                 editModal.addEventListener('hidden.bs.modal', function() {
+                    console.log('Modal hidden, removing from DOM');
                     editModal.remove();
                 });
             } else {
