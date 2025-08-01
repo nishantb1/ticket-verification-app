@@ -185,6 +185,7 @@ def init_db():
             INSERT INTO admin_users (username, email, password_hash, role)
             VALUES (?, ?, ?, ?)
         ''', ('admin', 'admin@depsi.com', default_password, 'super_admin'))
+        logger.info("Default admin user created: admin/admin123")
     
     # Insert default waves if they don't exist
     cursor.execute('SELECT COUNT(*) FROM wave')
@@ -1770,6 +1771,8 @@ def export_zelle_excel():
         flash(f'Error exporting Zelle data: {e}', 'error')
         return redirect(url_for('csv_management'))
 
+# Initialize database on startup (for production environments like Render)
+init_db()
+
 if __name__ == '__main__':
-    init_db()
     app.run(debug=True) 

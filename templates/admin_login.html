@@ -25,7 +25,7 @@
                         {% endif %}
                     {% endwith %}
                     
-                    <form method="POST" action="{{ url_for('admin_login') }}">
+                    <form method="POST" action="{{ url_for('admin_login') }}" id="loginForm">
                         <div class="mb-3">
                             <label for="username" class="form-label">
                                 <i class="fas fa-user me-2"></i>Username
@@ -41,8 +41,9 @@
                         </div>
                         
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-primary">
+                            <button type="submit" class="btn btn-primary" id="loginBtn">
                                 <i class="fas fa-sign-in-alt me-2"></i>Login
+                                <span class="spinner-border spinner-border-sm ms-2 d-none" id="loginSpinner"></span>
                             </button>
                         </div>
                     </form>
@@ -115,4 +116,30 @@
     color: #0c5460;
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const loginForm = document.getElementById('loginForm');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginSpinner = document.getElementById('loginSpinner');
+    
+    if (loginForm) {
+        loginForm.addEventListener('submit', function(e) {
+            // Show loading state
+            loginBtn.disabled = true;
+            loginSpinner.classList.remove('d-none');
+            
+            // Change button content
+            const originalHTML = loginBtn.innerHTML;
+            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Logging in...';
+            
+            // Re-enable button after 10 seconds as fallback
+            setTimeout(() => {
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = originalHTML;
+            }, 10000);
+        });
+    }
+});
+</script>
 {% endblock %} 
