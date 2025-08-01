@@ -25,7 +25,7 @@
                         {% endif %}
                     {% endwith %}
                     
-                    <form method="POST" action="/admin/login" id="loginForm" onsubmit="console.log('HTML form onsubmit triggered')">
+                    <form method="POST" action="/admin/login">
                         <div class="mb-3">
                             <label for="username" class="form-label">
                                 <i class="fas fa-user me-2"></i>Username
@@ -41,7 +41,7 @@
                         </div>
                         
                         <div class="d-grid">
-                            <button type="submit" class="btn btn-primary" id="loginBtn">
+                            <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-sign-in-alt me-2"></i>Login
                             </button>
                         </div>
@@ -124,36 +124,5 @@
 }
 </style>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const loginForm = document.getElementById('loginForm');
-    const loginBtn = document.getElementById('loginBtn');
-    
-    if (loginForm && loginBtn) {
-        // Only handle form submission, not button clicks
-        loginForm.addEventListener('submit', function(e) {
-            console.log('Form submitting...');
-            
-            // Validate form
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
-            
-            if (!username || !password) {
-                e.preventDefault();
-                alert('Please enter both username and password');
-                return false;
-            }
-            
-            // Show loading state but don't prevent submission
-            loginBtn.disabled = true;
-            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
-            
-            console.log('Form validation passed, submitting to server...');
-            // Form will submit normally here
-        });
-    } else {
-        console.error('Login form or button not found');
-    }
-});
-</script>
+<!-- Removed JavaScript to test basic form submission -->
 {% endblock %} 
