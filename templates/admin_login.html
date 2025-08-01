@@ -72,29 +72,37 @@
 }
 
 .card-header {
-    background: linear-gradient(135deg, var(--depsi-navy) 0%, var(--depsi-dark-navy) 100%);
-    color: white;
+    background: #000080 !important;
+    color: white !important;
     border-radius: 12px 12px 0 0 !important;
     border: none;
 }
 
 .form-control:focus {
-    border-color: var(--depsi-navy);
-    box-shadow: 0 0 0 0.2rem rgba(0, 0, 128, 0.25);
+    border-color: #000080 !important;
+    box-shadow: 0 0 0 0.2rem rgba(0, 0, 128, 0.25) !important;
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, var(--depsi-navy) 0%, var(--depsi-light-navy) 100%);
-    border: none;
+    background: #000080 !important;
+    border: none !important;
     border-radius: 8px;
     font-weight: 600;
     padding: 12px;
+    color: white !important;
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, var(--depsi-dark-navy) 0%, var(--depsi-navy) 100%);
+    background: #000040 !important;
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(0, 0, 128, 0.4);
+    color: white !important;
+}
+
+.btn-primary:disabled {
+    background: #6c757d !important;
+    color: white !important;
+    opacity: 0.8;
 }
 
 .alert-danger {
@@ -157,6 +165,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Please enter both username and password');
                 return false;
             }
+            
+            // If validation passes, the form will submit normally
+            console.log('Form validation passed, submitting...');
         });
     } else {
         console.error('Login form or button not found');
