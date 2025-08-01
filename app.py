@@ -1334,7 +1334,7 @@ def reject_order(order_id):
     
     return redirect(url_for('admin_dashboard'))
 
-@app.route('/admin/delete/<int:order_id>')
+@app.route('/admin/delete/<int:order_id>', methods=['DELETE', 'GET'])
 @login_required
 def delete_order(order_id):
     """Delete an order completely"""
@@ -1353,16 +1353,32 @@ def delete_order(order_id):
             
             # Log the deletion
             log_audit_action('delete_order', f'Order {order_id} (Customer: {order[0]}, Email: {order[1]}, UUID: {order[2]}) deleted')
-            flash('Order deleted successfully!', 'success')
+            
+            # Return JSON for AJAX requests
+            if request.method == 'DELETE':
+                return jsonify({'success': True, 'message': 'Order deleted successfully'})
+            else:
+                flash('Order deleted successfully!', 'success')
         else:
-            flash('Order not found!', 'error')
+            if request.method == 'DELETE':
+                return jsonify({'success': False, 'error': 'Order not found'}), 404
+            else:
+                flash('Order not found!', 'error')
         
         conn.close()
+        
+        # For GET requests, redirect to dashboard
+        if request.method == 'GET':
+            return redirect(url_for('admin_dashboard'))
+            
     except Exception as e:
         log_error(logger, e, f"Order deletion failed for order ID: {order_id}")
-        flash(f'Error deleting order: {e}', 'error')
-    
-    return redirect(url_for('admin_dashboard'))
+        
+        if request.method == 'DELETE':
+            return jsonify({'success': False, 'error': str(e)}), 500
+        else:
+            flash(f'Error deleting order: {e}', 'error')
+            return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/rerun-matching')
 @login_required
