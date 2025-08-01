@@ -35,12 +35,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs('csv_uploads', exist_ok=True)
 os.makedirs('static', exist_ok=True)
 
-# Ensure database directory exists for persistent storage
-db_path = get_db_path()
-db_dir = os.path.dirname(db_path)
-if db_dir:
-    os.makedirs(db_dir, exist_ok=True)
-
 logger.info("Application initialized successfully")
 
 def get_db_path():
@@ -1872,6 +1866,15 @@ def export_zelle_excel():
     except Exception as e:
         flash(f'Error exporting Zelle data: {e}', 'error')
         return redirect(url_for('csv_management'))
+
+# Ensure database directory exists for persistent storage
+try:
+    db_path = get_db_path()
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+except Exception as e:
+    logger.error(f"Error creating database directory: {e}")
 
 # Initialize database on startup (for production environments like Render)
 init_db()
