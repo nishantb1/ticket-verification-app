@@ -25,7 +25,7 @@
                         {% endif %}
                     {% endwith %}
                     
-                    <form method="POST" action="/admin/login" id="loginForm">
+                    <form method="POST" action="/admin/login" id="loginForm" onsubmit="console.log('HTML form onsubmit triggered')">
                         <div class="mb-3">
                             <label for="username" class="form-label">
                                 <i class="fas fa-user me-2"></i>Username
@@ -128,34 +128,12 @@
 document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('loginForm');
     const loginBtn = document.getElementById('loginBtn');
-    const loginSpinner = document.getElementById('loginSpinner');
     
     if (loginForm && loginBtn) {
+        // Only handle form submission, not button clicks
         loginForm.addEventListener('submit', function(e) {
-            // Don't prevent default - let the form submit normally
             console.log('Form submitting...');
             
-            // Show loading state
-            loginBtn.disabled = true;
-            if (loginSpinner) {
-                loginSpinner.classList.remove('d-none');
-            }
-            
-            // Change button content
-            const originalHTML = loginBtn.innerHTML;
-            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
-            
-            // Re-enable button after 15 seconds as fallback
-            setTimeout(() => {
-                loginBtn.disabled = false;
-                loginBtn.innerHTML = originalHTML;
-                console.log('Login timeout - button re-enabled');
-            }, 15000);
-        });
-        
-        // Also handle button click directly
-        loginBtn.addEventListener('click', function(e) {
-            console.log('Login button clicked');
             // Validate form
             const username = document.getElementById('username').value.trim();
             const password = document.getElementById('password').value.trim();
@@ -166,8 +144,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 return false;
             }
             
-            // If validation passes, the form will submit normally
-            console.log('Form validation passed, submitting...');
+            // Show loading state but don't prevent submission
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+            
+            console.log('Form validation passed, submitting to server...');
+            // Form will submit normally here
         });
     } else {
         console.error('Login form or button not found');

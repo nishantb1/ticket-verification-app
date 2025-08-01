@@ -939,6 +939,8 @@ def admin_debug():
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     """Admin login page"""
+    logger.info(f"Admin login route accessed - Method: {request.method}")
+    
     if request.method == 'POST':
         try:
             username = request.form.get('username', '').strip()
