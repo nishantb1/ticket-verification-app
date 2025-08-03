@@ -2,8 +2,26 @@ services:
   - type: web
     name: depsi-ticket-verifier
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: chmod +x startup.sh && ./startup.sh
+    buildCommand: |
+      pip install -r requirements.txt
+      echo "=== Checking system dependencies ==="
+      if [ -d "/var/data" ]; then
+        echo "✅ Persistent disk found at /var/data"
+        ls -la /var/data/
+      else
+        echo "⚠️  Persistent disk not found at /var/data"
+      fi
+      if command -v tesseract &> /dev/null; then
+        echo "✅ Tesseract found: $(tesseract --version | head -n1)"
+      else
+        echo "❌ Tesseract not found"
+      fi
+      if command -v pdftoppm &> /dev/null; then
+        echo "✅ Poppler-utils found"
+      else
+        echo "❌ Poppler-utils not found"
+      fi
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
