@@ -1830,6 +1830,97 @@ def view_logs():
         flash(f'Error reading logs: {e}', 'error')
         return redirect(url_for('admin_dashboard'))
 
+@app.route('/admin/db-status')
+@login_required
+def db_status():
+    """Check database status and contents"""
+    try:
+        db_path = get_db_path()
+        db_info = {
+            'path': db_path,
+            'exists': os.path.exists(db_path),
+            'size': os.path.getsize(db_path) if os.path.exists(db_path) else 0,
+            'directory': os.path.dirname(db_path),
+            'directory_exists': os.path.exists(os.path.dirname(db_path)),
+            'writable': os.access(os.path.dirname(db_path), os.W_OK) if os.path.exists(os.path.dirname(db_path)) else False
+        }
+        
+        # Get database contents
+        if os.path.exists(db_path):
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            
+            # Get table counts
+            cursor.execute("SELECT COUNT(*) FROM order_table")
+            db_info['orders'] = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM admin_users")
+            db_info['admins'] = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM wave")
+            db_info['waves'] = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM venmo_transactions")
+            db_info['venmo_transactions'] = cursor.fetchone()[0]
+            
+            cursor.execute("SELECT COUNT(*) FROM zelle_transactions")
+            db_info['zelle_transactions'] = cursor.fetchone()[0]
+            
+            conn.close()
+        else:
+            db_info.update({
+                'orders': 0, 'admins': 0, 'waves': 0,
+                'venmo_transactions': 0, 'zelle_transactions': 0
+            })
+        
+        return render_template('db_status.html', db_info=db_info)
+        
+    except Exception as e:
+        log_error(logger, e, "Failed to check database status")
+        flash(f'Error checking database status: {e}', 'error')
+        return redirect(url_for('admin_dashboard'))
+
+@app.route('/admin/check-tesseract')
+@login_required
+def check_tesseract():
+    """Check if Tesseract OCR is properly installed"""
+    try:
+        import pytesseract
+        
+        # Try to get Tesseract version
+        try:
+            version = pytesseract.get_tesseract_version()
+            tesseract_available = True
+            version_info = str(version)
+        except Exception as e:
+            tesseract_available = False
+            version_info = f"Error: {str(e)}"
+        
+        # Check environment variables
+        tesseract_cmd = os.environ.get('TESSERACT_CMD', '/usr/bin/tesseract')
+        
+        # Check if tesseract command exists
+        import subprocess
+        try:
+            result = subprocess.run(['which', 'tesseract'], capture_output=True, text=True)
+            tesseract_path = result.stdout.strip() if result.returncode == 0 else "Not found"
+        except Exception as e:
+            tesseract_path = f"Error: {str(e)}"
+        
+        tesseract_info = {
+            'available': tesseract_available,
+            'version': version_info,
+            'cmd_path': tesseract_cmd,
+            'system_path': tesseract_path
+        }
+        
+        return render_template('tesseract_status.html', tesseract_info=tesseract_info)
+        
+    except Exception as e:
+        log_error(logger, e, "Failed to check Tesseract status")
+        flash(f'Error checking Tesseract status: {e}', 'error')
+        return redirect(url_for('admin_dashboard'))
+
 @app.route('/admin/export-zelle-excel')
 @login_required
 def export_zelle_excel():
@@ -1914,11 +2005,42 @@ try:
     db_dir = os.path.dirname(db_path)
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
+        logger.info(f"Database directory created/verified: {db_dir}")
+    
+    # Check if database exists and log its status
+    if os.path.exists(db_path):
+        db_size = os.path.getsize(db_path)
+        logger.info(f"Database exists at {db_path} with size: {db_size} bytes")
+    else:
+        logger.info(f"Database will be created at: {db_path}")
+        
 except Exception as e:
     logger.error(f"Error creating database directory: {e}")
 
 # Initialize database on startup (for production environments like Render)
 init_db()
+
+# Log database status after initialization
+try:
+    db_path = get_db_path()
+    if os.path.exists(db_path):
+        db_size = os.path.getsize(db_path)
+        logger.info(f"Database initialized successfully. Size: {db_size} bytes")
+        
+        # Check if we have any orders
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM order_table')
+        order_count = cursor.fetchone()[0]
+        cursor.execute('SELECT COUNT(*) FROM admin_users')
+        admin_count = cursor.fetchone()[0]
+        conn.close()
+        
+        logger.info(f"Database contains {order_count} orders and {admin_count} admin users")
+    else:
+        logger.error("Database file was not created during initialization")
+except Exception as e:
+    logger.error(f"Error checking database status: {e}")
 
 if __name__ == '__main__':
     app.run(debug=True) 

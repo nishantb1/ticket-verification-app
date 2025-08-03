@@ -33,6 +33,12 @@
         <a href="{{ url_for('view_logs') }}" class="btn btn-outline-secondary">
             <i class="fas fa-file-alt me-2"></i>Logs
         </a>
+        <a href="{{ url_for('db_status') }}" class="btn btn-outline-info">
+            <i class="fas fa-database me-2"></i>DB Status
+        </a>
+        <a href="{{ url_for('check_tesseract') }}" class="btn btn-outline-warning">
+            <i class="fas fa-eye me-2"></i>OCR Status
+        </a>
                 <div class="dropdown">
                     <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
                         <i class="fas fa-user me-2"></i>Admin

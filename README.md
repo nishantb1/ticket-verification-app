@@ -141,6 +141,25 @@ For Render deployment, system dependencies are automatically installed via the `
 
 The `render.yaml` configuration handles the deployment automatically.
 
+#### Database Persistence on Render
+
+The application uses a persistent disk on Render to store the database:
+- **Database Path**: `/var/data/tickets.db` (configured via `DATABASE_PATH` environment variable)
+- **Disk Mount**: `/var/data` with 1GB storage
+- **Persistence**: Data survives deployments and restarts
+
+**If orders are lost after deployment:**
+1. Check the **DB Status** page in the admin panel (`/admin/db-status`)
+2. Verify the database path points to `/var/data/tickets.db`
+3. Ensure the persistent disk is properly mounted
+4. Check application logs for database initialization errors
+
+**If OCR is not working:**
+1. Check the **OCR Status** page in the admin panel (`/admin/check-tesseract`)
+2. Verify Tesseract is installed via the `apt-packages` file
+3. Check if the `TESSERACT_CMD` environment variable is set correctly
+4. Ensure all dependencies are installed: `tesseract-ocr`, `poppler-utils`, `libtesseract-dev`
+
 ### Default Admin Credentials
 - **Username**: `admin`
 - **Password**: `admin123`

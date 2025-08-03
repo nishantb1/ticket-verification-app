@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Database Status - ΔΕΨ Ticket Verifier{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-gradient-primary text-white">
+                    <h3 class="mb-0">
+                        <i class="fas fa-database me-2"></i>
+                        Database Status
+                    </h3>
+                    <p class="mb-0 opacity-75">Debug information for database persistence</p>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5 class="text-primary mb-3">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Database Information
+                            </h5>
+                            <table class="table table-striped">
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Database Path:</strong></td>
+                                        <td><code>{{ db_info.path }}</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Database Exists:</strong></td>
+                                        <td>
+                                            {% if db_info.exists %}
+                                                <span class="badge bg-success">Yes</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">No</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Database Size:</strong></td>
+                                        <td>{{ db_info.size }} bytes</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Directory:</strong></td>
+                                        <td><code>{{ db_info.directory }}</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Directory Exists:</strong></td>
+                                        <td>
+                                            {% if db_info.directory_exists %}
+                                                <span class="badge bg-success">Yes</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">No</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Directory Writable:</strong></td>
+                                        <td>
+                                            {% if db_info.writable %}
+                                                <span class="badge bg-success">Yes</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">No</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="text-primary mb-3">
+                                <i class="fas fa-table me-2"></i>
+                                Database Contents
+                            </h5>
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3 class="text-primary mb-0">{{ db_info.orders }}</h3>
+                                            <small class="text-muted">Orders</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3 class="text-success mb-0">{{ db_info.admins }}</h3>
+                                            <small class="text-muted">Admin Users</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3 class="text-info mb-0">{{ db_info.waves }}</h3>
+                                            <small class="text-muted">Waves</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3 class="text-warning mb-0">{{ db_info.venmo_transactions }}</h3>
+                                            <small class="text-muted">Venmo Transactions</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <div class="card bg-light">
+                                        <div class="card-body text-center">
+                                            <h3 class="text-secondary mb-0">{{ db_info.zelle_transactions }}</h3>
+                                            <small class="text-muted">Zelle Transactions</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Troubleshooting
+                        </h5>
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-lightbulb me-2"></i>Common Issues:</h6>
+                            <ul class="mb-0">
+                                <li><strong>Database doesn't exist:</strong> The app will create it on first run</li>
+                                <li><strong>Directory not writable:</strong> Check Render disk permissions</li>
+                                <li><strong>Orders lost after deployment:</strong> Ensure DATABASE_PATH points to persistent disk</li>
+                                <li><strong>Zero orders after restart:</strong> Database may be in wrong location</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-primary">
+                        <i class="fas fa-arrow-left me-2"></i>
+                        Back to Dashboard
+                    </a>
+                    <a href="{{ url_for('view_logs') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-file-alt me-2"></i>
+                        View Logs
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
