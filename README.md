@@ -133,6 +133,14 @@ If you encounter OCR errors like "Tesseract OCR not found":
    - Check the admin logs for OCR processing details
    - Verify the image format is supported (PNG, JPG, PDF)
 
+### Render Deployment
+
+For Render deployment, system dependencies are automatically installed via the `apt-packages` file:
+- `tesseract-ocr` - OCR engine for text extraction
+- `poppler-utils` - PDF processing utilities
+
+The `render.yaml` configuration handles the deployment automatically.
+
 ### Default Admin Credentials
 - **Username**: `admin`
 - **Password**: `admin123`
