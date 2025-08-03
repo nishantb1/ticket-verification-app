@@ -107,6 +107,32 @@ python app.py
 
 The application will be available at `http://localhost:5000`
 
+### Troubleshooting OCR Issues
+
+If you encounter OCR errors like "Tesseract OCR not found":
+
+1. **Verify Tesseract Installation**:
+   ```bash
+   tesseract --version
+   ```
+
+2. **Check Python can find Tesseract**:
+   ```python
+   import pytesseract
+   print(pytesseract.get_tesseract_version())
+   ```
+
+3. **Common Solutions**:
+   - **Ubuntu/Debian**: `sudo apt-get install tesseract-ocr`
+   - **macOS**: `brew install tesseract`
+   - **Windows**: Ensure Tesseract is in your system PATH
+   - **Render/Heroku**: Add buildpack: `heroku buildpacks:add https://github.com/heroku/heroku-buildpack-apt`
+
+4. **Test OCR Functionality**:
+   - Upload a clear image with text
+   - Check the admin logs for OCR processing details
+   - Verify the image format is supported (PNG, JPG, PDF)
+
 ### Default Admin Credentials
 - **Username**: `admin`
 - **Password**: `admin123`

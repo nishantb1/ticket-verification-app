@@ -2,7 +2,9 @@ services:
   - type: web
     name: depsi-ticket-verifier
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: |
+      apt-get update && apt-get install -y tesseract-ocr poppler-utils
+      pip install -r requirements.txt
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
@@ -11,6 +13,8 @@ services:
         generateValue: true
       - key: DATABASE_PATH
         value: /var/data/tickets.db
+      - key: TESSERACT_CMD
+        value: /usr/bin/tesseract
     disk:
       name: data
       mountPath: /var/data

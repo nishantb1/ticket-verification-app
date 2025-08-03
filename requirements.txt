@@ -1,7 +1,21 @@
+# Web Framework
 Flask
 Werkzeug
+
+# Image Processing
 Pillow
 pytesseract
+
+# PDF Processing
 pdf2image
+
+# Production Server
 gunicorn
+
+# Excel Export
 openpyxl
+
+# Note: Tesseract OCR engine must be installed separately on the system:
+# Ubuntu/Debian: sudo apt-get install tesseract-ocr poppler-utils
+# macOS: brew install tesseract poppler
+# Windows: Download from https://github.com/UB-Mannheim/tesseract/wiki
