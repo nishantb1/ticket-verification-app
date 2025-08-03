@@ -22,7 +22,7 @@ from logging_config import setup_logging, get_logger, log_order_submission, log_
 logger = setup_logging()
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-change-this-in-production'
+app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-change-this-in-production')
 
 # Configuration
 UPLOAD_FOLDER = 'uploads'
@@ -2160,4 +2160,6 @@ except Exception as e:
     logger.error(f"Error checking database status: {e}")
 
 if __name__ == '__main__':
-    app.run(debug=True) 
+    # For local development
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False) 
