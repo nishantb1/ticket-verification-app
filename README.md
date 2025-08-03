@@ -55,10 +55,20 @@ A Flask web application designed for free-tier hosting (Heroku, PythonAnywhere) 
 
 ### Prerequisites
 - Python 3.8+
-- Tesseract OCR (for pytesseract)
-- Poppler (for PDF processing)
 
-### System Dependencies
+### OCR and PDF Processing
+
+The application uses multiple OCR and PDF processing methods with automatic fallback:
+
+1. **Primary (System Dependencies):**
+   - Tesseract OCR (for pytesseract)
+   - Poppler (for PDF processing)
+
+2. **Fallback (Python-only):**
+   - EasyOCR (no system dependencies)
+   - PyMuPDF (no system dependencies)
+
+### System Dependencies (Optional)
 
 #### Ubuntu/Debian:
 ```bash
@@ -156,9 +166,12 @@ The application uses a persistent disk on Render to store the database:
 
 **If OCR is not working:**
 1. Check the **OCR Status** page in the admin panel (`/admin/check-tesseract`)
-2. Verify Tesseract is installed via the `apt-packages` file
-3. Check if the `TESSERACT_CMD` environment variable is set correctly
-4. Ensure all dependencies are installed: `tesseract-ocr`, `poppler-utils`, `libtesseract-dev`
+2. The app will automatically try multiple OCR methods:
+   - Tesseract OCR (if system dependencies available)
+   - EasyOCR (Python-only fallback)
+   - PyMuPDF (for PDF text extraction)
+3. Check application logs for which OCR method is being used
+4. For Render deployment, Python alternatives are preferred (no system dependencies needed)
 
 ### Default Admin Credentials
 - **Username**: `admin`

@@ -438,8 +438,21 @@ def extract_text_from_image(image_path):
                 continue
         
         if not tesseract_found:
-            logger.error("Tesseract OCR not found. Please install Tesseract OCR engine.")
-            return "OCR_NOT_AVAILABLE"
+            logger.info("Tesseract not found, trying EasyOCR as fallback...")
+            try:
+                import easyocr
+                reader = easyocr.Reader(['en'])
+                image = Image.open(image_path)
+                results = reader.readtext(image_path)
+                text = '\n'.join([result[1] for result in results])
+                logger.info(f"EasyOCR extracted {len(text)} characters")
+                return text
+            except ImportError:
+                logger.error("EasyOCR not available. Please install with: pip install easyocr")
+                return "OCR_NOT_AVAILABLE"
+            except Exception as e:
+                logger.error(f"EasyOCR failed: {e}")
+                return "OCR_NOT_AVAILABLE"
         
         image = Image.open(image_path)
         text = pytesseract.image_to_string(image)
@@ -457,6 +470,30 @@ def extract_text_from_pdf(pdf_path):
     """Extract text from PDF using OCR"""
     start_time = time.time()
     try:
+        # First try PyMuPDF for text extraction (no OCR needed)
+        try:
+            import fitz  # PyMuPDF
+            doc = fitz.open(pdf_path)
+            text = ""
+            for page_num in range(len(doc)):
+                page = doc.load_page(page_num)
+                page_text = page.get_text()
+                text += page_text + "\n"
+                logger.debug(f"PDF Text - Page {page_num+1}: {len(page_text)} characters")
+            doc.close()
+            
+            # If we got meaningful text, return it
+            if len(text.strip()) > 50:  # Assume we got real text if >50 chars
+                duration = time.time() - start_time
+                log_performance(logger, "PDF Text Extraction", duration, f"File: {os.path.basename(pdf_path)}")
+                return text
+            else:
+                logger.info("PyMuPDF extracted minimal text, trying OCR...")
+        except ImportError:
+            logger.info("PyMuPDF not available, trying OCR...")
+        except Exception as e:
+            logger.info(f"PyMuPDF failed: {e}, trying OCR...")
+        
         # Try to find Tesseract in common locations
         tesseract_paths = [
             '/usr/bin/tesseract',
@@ -477,9 +514,46 @@ def extract_text_from_pdf(pdf_path):
                 continue
         
         if not tesseract_found:
-            logger.error("Tesseract OCR not found. Please install Tesseract OCR engine.")
-            return "OCR_NOT_AVAILABLE"
+            logger.info("Tesseract not found, trying EasyOCR as fallback...")
+            try:
+                import easyocr
+                reader = easyocr.Reader(['en'])
+                
+                # Convert PDF to images using PyMuPDF
+                try:
+                    import fitz
+                    doc = fitz.open(pdf_path)
+                    text = ""
+                    for page_num in range(len(doc)):
+                        page = doc.load_page(page_num)
+                        pix = page.get_pixmap()
+                        img_data = pix.tobytes("png")
+                        
+                        # Save temporary image
+                        temp_img_path = f"/tmp/pdf_page_{page_num}.png"
+                        with open(temp_img_path, "wb") as f:
+                            f.write(img_data)
+                        
+                        # OCR the image
+                        results = reader.readtext(temp_img_path)
+                        page_text = '\n'.join([result[1] for result in results])
+                        text += page_text + "\n"
+                        
+                        # Clean up temp file
+                        os.remove(temp_img_path)
+                    
+                    doc.close()
+                    duration = time.time() - start_time
+                    log_performance(logger, "PDF OCR with EasyOCR", duration, f"File: {os.path.basename(pdf_path)}")
+                    return text
+                except Exception as e:
+                    logger.error(f"EasyOCR PDF processing failed: {e}")
+                    return "OCR_NOT_AVAILABLE"
+            except ImportError:
+                logger.error("EasyOCR not available. Please install with: pip install easyocr")
+                return "OCR_NOT_AVAILABLE"
         
+        # Use pdf2image + Tesseract
         try:
             images = pdf2image.convert_from_path(pdf_path)
         except Exception as e:

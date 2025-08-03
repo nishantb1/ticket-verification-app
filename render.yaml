@@ -11,16 +11,10 @@ services:
       else
         echo "⚠️  Persistent disk not found at /var/data"
       fi
-      if command -v tesseract &> /dev/null; then
-        echo "✅ Tesseract found: $(tesseract --version | head -n1)"
-      else
-        echo "❌ Tesseract not found"
-      fi
-      if command -v pdftoppm &> /dev/null; then
-        echo "✅ Poppler-utils found"
-      else
-        echo "❌ Poppler-utils not found"
-      fi
+      echo "=== Python OCR alternatives available ==="
+      python -c "import easyocr; print('✅ EasyOCR available')" 2>/dev/null || echo "❌ EasyOCR not available"
+      python -c "import fitz; print('✅ PyMuPDF available')" 2>/dev/null || echo "❌ PyMuPDF not available"
+      python -c "import pytesseract; print('✅ pytesseract available')" 2>/dev/null || echo "❌ pytesseract not available"
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION

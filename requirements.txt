@@ -6,8 +6,12 @@ Werkzeug
 Pillow
 pytesseract
 
+# Alternative OCR (no system dependencies)
+easyocr
+
 # PDF Processing
 pdf2image
+pymupdf
 
 # Production Server
 gunicorn

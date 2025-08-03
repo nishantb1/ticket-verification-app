@@ -1,3 +1,4 @@
-tesseract-ocr
-poppler-utils
-libtesseract-dev 
+# System dependencies removed - using Python alternatives instead
+# tesseract-ocr
+# poppler-utils
+# libtesseract-dev 
