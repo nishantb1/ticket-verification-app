@@ -1592,7 +1592,7 @@ function editWave(waveId) {
                 const wave = data.wave;
                 console.log('Wave data received:', wave);
                 
-                // Create edit form modal
+                // Create edit form modal with explicit Save button
                 const editModal = document.createElement('div');
                 editModal.className = 'modal fade';
                 editModal.id = 'editWaveModal';
@@ -1644,7 +1644,7 @@ function editWave(waveId) {
                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                                     <i class="fas fa-times me-2"></i>Cancel
                                 </button>
-                                <button type="button" class="btn btn-primary" onclick="saveWaveEdit(${wave.id})" id="saveWaveBtn">
+                                <button type="button" class="btn btn-primary btn-lg" onclick="saveWaveEdit(${wave.id})" id="saveWaveBtn" style="min-width: 150px; display: inline-block !important; visibility: visible !important; opacity: 1 !important; background-color: #007bff !important; color: white !important; border: 1px solid #007bff !important;">
                                     <i class="fas fa-save me-2"></i>Save Changes
                                 </button>
                             </div>
@@ -1662,13 +1662,32 @@ function editWave(waveId) {
                 document.body.appendChild(editModal);
                 console.log('Modal added to DOM');
                 
-                // Wait a moment for DOM to update, then show modal
+                // Show modal immediately
+                const modal = new bootstrap.Modal(editModal);
+                modal.show();
+                console.log('Modal should be visible now');
+                
+                // Force Save button to be visible
                 setTimeout(() => {
-                    const modal = new bootstrap.Modal(editModal);
-                    console.log('Bootstrap modal created');
-                    modal.show();
-                    console.log('Modal should be visible now');
-                }, 100);
+                    const saveBtn = document.getElementById('saveWaveBtn');
+                    if (saveBtn) {
+                        console.log('Save button found:', saveBtn);
+                        saveBtn.style.display = 'inline-block !important';
+                        saveBtn.style.visibility = 'visible !important';
+                        saveBtn.style.opacity = '1 !important';
+                        saveBtn.style.position = 'static !important';
+                        console.log('Save button styles applied');
+                    } else {
+                        console.error('Save button not found!');
+                        // Try to find any button in the modal footer
+                        const modalFooter = editModal.querySelector('.modal-footer');
+                        if (modalFooter) {
+                            console.log('Modal footer found:', modalFooter.innerHTML);
+                        } else {
+                            console.error('Modal footer not found!');
+                        }
+                    }
+                }, 50);
                 
                 // Clean up when modal is hidden
                 editModal.addEventListener('hidden.bs.modal', function() {
@@ -1686,11 +1705,19 @@ function editWave(waveId) {
 
 // Save wave edit function
 function saveWaveEdit(waveId) {
+    console.log('saveWaveEdit called with waveId:', waveId);
+    
     const form = document.getElementById('editWaveForm');
     const saveBtn = document.getElementById('saveWaveBtn');
     
     if (!form) {
         showNotification('Form not found', 'error');
+        return;
+    }
+    
+    if (!saveBtn) {
+        console.error('Save button not found in saveWaveEdit function');
+        showNotification('Save button not found', 'error');
         return;
     }
     
