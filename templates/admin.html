@@ -663,6 +663,14 @@
                                 </div>
                             </div>
                         </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_active" name="is_active">
+                                <label class="form-check-label" for="is_active">
+                                    <strong>Active Wave</strong> (This wave will be used for new orders)
+                                </label>
+                            </div>
+                        </div>
                         <button type="submit" class="btn btn-primary">Add Wave</button>
                     </form>
                 </div>
@@ -1636,6 +1644,14 @@ function editWave(waveId) {
                                                 <label for="edit_price_girl" class="form-label">Girls Price</label>
                                                 <input type="number" class="form-control" id="edit_price_girl" name="price_girl" value="${wave.price_girl}" step="0.01" required>
                                             </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="edit_is_active" name="is_active" ${wave.is_active ? 'checked' : ''}>
+                                            <label class="form-check-label" for="edit_is_active">
+                                                <strong>Active Wave</strong> (This wave will be used for new orders)
+                                            </label>
                                         </div>
                                     </div>
                                 </form>

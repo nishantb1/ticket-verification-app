@@ -105,9 +105,17 @@ def init_db():
             start_date DATE NOT NULL,
             end_date DATE NOT NULL,
             price_boy REAL NOT NULL,
-            price_girl REAL NOT NULL
+            price_girl REAL NOT NULL,
+            is_active BOOLEAN DEFAULT 0
         )
     ''')
+    
+    # Add is_active column if it doesn't exist (for existing databases)
+    try:
+        cursor.execute('ALTER TABLE wave ADD COLUMN is_active BOOLEAN DEFAULT 0')
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
     
     # Create Order table
     cursor.execute('''
@@ -224,42 +232,36 @@ def init_db():
     cursor.execute('SELECT COUNT(*) FROM wave')
     if cursor.fetchone()[0] == 0:
         waves = [
-            ('Wave 1', '2024-01-01', '2024-01-31', 25.00, 20.00),
-            ('Wave 2', '2024-02-01', '2024-02-29', 30.00, 25.00),
-            ('Wave 3', '2024-03-01', '2024-03-31', 35.00, 30.00)
+            ('Wave 1', '2024-01-01', '2024-01-31', 25.00, 20.00, 1),  # Set first wave as active
+            ('Wave 2', '2024-02-01', '2024-02-29', 30.00, 25.00, 0),
+            ('Wave 3', '2024-03-01', '2024-03-31', 35.00, 30.00, 0)
         ]
-        cursor.executemany('INSERT INTO wave (name, start_date, end_date, price_boy, price_girl) VALUES (?, ?, ?, ?, ?)', waves)
+        cursor.executemany('INSERT INTO wave (name, start_date, end_date, price_boy, price_girl, is_active) VALUES (?, ?, ?, ?, ?, ?)', waves)
     
     conn.commit()
     conn.close()
 
 def get_current_wave():
-    """Get the current wave based on date"""
+    """Get the current active wave"""
     conn = sqlite3.connect(get_db_path())
     cursor = conn.cursor()
-    today = datetime.now().date()
     
-    # First check if price_boy and price_girl columns exist
+    # First check if is_active column exists
     cursor.execute("PRAGMA table_info(wave)")
     columns = [col[1] for col in cursor.fetchall()]
     
-    if 'price_boy' not in columns or 'price_girl' not in columns:
-        # Add missing columns
-        if 'price_boy' not in columns:
-            cursor.execute("ALTER TABLE wave ADD COLUMN price_boy REAL DEFAULT 25.0")
-        if 'price_girl' not in columns:
-            cursor.execute("ALTER TABLE wave ADD COLUMN price_girl REAL DEFAULT 20.0")
-        
-        # Update existing waves with default prices
-        cursor.execute("UPDATE wave SET price_boy = 25.0 WHERE price_boy IS NULL")
-        cursor.execute("UPDATE wave SET price_girl = 20.0 WHERE price_girl IS NULL")
+    if 'is_active' not in columns:
+        # Add is_active column if it doesn't exist
+        cursor.execute("ALTER TABLE wave ADD COLUMN is_active BOOLEAN DEFAULT 0")
         conn.commit()
     
+    # Get the active wave
     cursor.execute('''
-        SELECT id, name, price_boy, price_girl 
+        SELECT id, name, price_boy, price_girl, is_active
         FROM wave 
-        WHERE start_date <= ? AND end_date >= ?
-    ''', (today, today))
+        WHERE is_active = 1
+        LIMIT 1
+    ''')
     
     result = cursor.fetchone()
     conn.close()
@@ -269,7 +271,8 @@ def get_current_wave():
             'id': result[0],
             'name': result[1],
             'price_boy': result[2],
-            'price_girl': result[3]
+            'price_girl': result[3],
+            'is_active': result[4]
         }
     return None
 
@@ -278,7 +281,7 @@ def get_all_waves():
     conn = sqlite3.connect(get_db_path())
     cursor = conn.cursor()
     
-    cursor.execute('SELECT id, name, start_date, end_date, price_boy, price_girl FROM wave ORDER BY start_date')
+    cursor.execute('SELECT id, name, start_date, end_date, price_boy, price_girl, is_active FROM wave ORDER BY start_date')
     waves = cursor.fetchall()
     conn.close()
     
@@ -288,7 +291,8 @@ def get_all_waves():
         'start_date': wave[2],
         'end_date': wave[3],
         'price_boy': wave[4],
-        'price_girl': wave[5]
+        'price_girl': wave[5],
+        'is_active': wave[6]
     } for wave in waves]
 
 def log_audit_action(action, details=None):
@@ -1442,7 +1446,7 @@ def get_wave(wave_id):
         conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         
-        cursor.execute('SELECT id, name, start_date, end_date, price_boy, price_girl FROM wave WHERE id = ?', (wave_id,))
+        cursor.execute('SELECT id, name, start_date, end_date, price_boy, price_girl, is_active FROM wave WHERE id = ?', (wave_id,))
         wave_data = cursor.fetchone()
         conn.close()
         
@@ -1453,7 +1457,8 @@ def get_wave(wave_id):
                 'start_date': wave_data[2],
                 'end_date': wave_data[3],
                 'price_boy': wave_data[4],
-                'price_girl': wave_data[5]
+                'price_girl': wave_data[5],
+                'is_active': wave_data[6]
             }
             return jsonify({'success': True, 'wave': wave})
         else:
@@ -1471,14 +1476,19 @@ def create_wave():
         end_date = request.form['end_date']
         price_boy = float(request.form['price_boy'])
         price_girl = float(request.form['price_girl'])
+        is_active = request.form.get('is_active') == 'on'  # Checkbox returns 'on' when checked
         
         conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         
+        # If this wave is being set as active, deactivate all other waves first
+        if is_active:
+            cursor.execute('UPDATE wave SET is_active = 0')
+        
         cursor.execute('''
-            INSERT INTO wave (name, start_date, end_date, price_boy, price_girl)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (name, start_date, end_date, price_boy, price_girl))
+            INSERT INTO wave (name, start_date, end_date, price_boy, price_girl, is_active)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (name, start_date, end_date, price_boy, price_girl, is_active))
         
         conn.commit()
         conn.close()
@@ -1497,15 +1507,20 @@ def update_wave(wave_id):
         end_date = request.form['end_date']
         price_boy = float(request.form['price_boy'])
         price_girl = float(request.form['price_girl'])
+        is_active = request.form.get('is_active') == 'on'  # Checkbox returns 'on' when checked
         
         conn = sqlite3.connect(get_db_path())
         cursor = conn.cursor()
         
+        # If this wave is being set as active, deactivate all other waves first
+        if is_active:
+            cursor.execute('UPDATE wave SET is_active = 0')
+        
         cursor.execute('''
             UPDATE wave 
-            SET name = ?, start_date = ?, end_date = ?, price_boy = ?, price_girl = ?
+            SET name = ?, start_date = ?, end_date = ?, price_boy = ?, price_girl = ?, is_active = ?
             WHERE id = ?
-        ''', (name, start_date, end_date, price_boy, price_girl, wave_id))
+        ''', (name, start_date, end_date, price_boy, price_girl, is_active, wave_id))
         
         conn.commit()
         conn.close()
