@@ -147,250 +147,211 @@
     </div>
 </div>
 
-<!-- Enhanced Kanban Board -->
+<!-- Enhanced Orders Table View -->
 <div class="row mb-4">
     <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4><i class="fas fa-table me-2"></i>Order Management</h4>
-            <div class="d-flex gap-2 flex-wrap">
-                <input type="text" class="form-control form-control-sm" id="searchOrders" placeholder="Search by name, email, UUID..." style="width: 250px;">
-                <select class="form-select form-select-sm" id="filterStatus" style="width: 150px;">
-                    <option value="">All Statuses</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Verified">Verified</option>
-                    <option value="Flagged">Flagged</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Rejected">Rejected</option>
-                </select>
-                <select class="form-select form-select-sm" id="filterWave" style="width: 150px;">
-                    <option value="">All Waves</option>
-                    <option value="1">Wave 1</option>
-                    <option value="2">Wave 2</option>
-                    <option value="3">Wave 3</option>
-                </select>
-                <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()">
-                    <i class="fas fa-times me-1"></i>Clear
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <!-- Pending Column -->
-    <div class="col-md-3">
-        <div class="kanban-column">
-            <div class="kanban-header bg-warning text-white">
-                <h5 class="mb-0">
-                    <i class="fas fa-clock me-2"></i>Pending ({{ pending|length }})
-                </h5>
-            </div>
-            <div class="kanban-content">
-                {% for order in pending %}
-                <div class="order-card status-pending">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <strong>{{ order[2] }}</strong>
-                        <small class="text-muted">{{ order[14].split(' ')[0] }}</small>
+        <div class="card shadow-lg border-0">
+            <div class="card-header bg-gradient-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="mb-0"><i class="fas fa-table me-2"></i>Order Management</h4>
+                        <small class="opacity-75">Manage and process customer orders</small>
                     </div>
-                    <div class="mb-2">
-                        <small class="text-muted">{{ order[3] }}</small><br>
-                        <small class="text-muted">Brother Referral: {{ order[4] or 'None' }}</small>
-                    </div>
-                    <div class="mb-2">
-                        <span class="badge bg-primary">{{ order[5] }} Boys</span>
-                        <span class="badge bg-info">{{ order[6] }} Girls</span>
-                    </div>
-                    <div class="mb-2">
-                        <strong>Expected: ${{ "%.2f"|format(order[8]) }}</strong><br>
-                        {% if order[9] %}
-                        <small>OCR: ${{ "%.2f"|format(order[9]) }}</small><br>
-                        {% endif %}
-                        {% if order[10] %}
-                        <small>Date: {{ order[10] }}</small><br>
-                        {% endif %}
-                        {% if order[11] %}
-                        <small>Payer: {{ order[11] }}</small>
-                        {% endif %}
-                    </div>
-                    {% if order[13] %}
-                    <img src="{{ url_for('serve_receipt', filename=order[13]) }}" class="receipt-thumbnail mb-2" alt="Receipt" onclick="openReceiptModal('{{ url_for('serve_receipt', filename=order[13]) }}')" style="cursor: pointer;" title="Click to view larger">
-                    {% endif %}
-                    <div class="btn-group btn-group-sm w-100">
-                        <button class="btn btn-outline-success" onclick="approveOrder({{ order[0] }})" title="Approve">
-                            <i class="fas fa-check"></i>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light btn-sm" onclick="exportOrders()" title="Export to Excel">
+                            <i class="fas fa-download me-1"></i>Export
                         </button>
-                        <button class="btn btn-outline-danger" onclick="rejectOrder({{ order[0] }})" title="Reject">
-                            <i class="fas fa-times"></i>
-                        </button>
-                        <button class="btn btn-outline-primary" onclick="editOrder({{ order[0] }})" title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-outline-dark" onclick="deleteOrder({{ order[0] }})" title="Delete">
-                            <i class="fas fa-trash"></i>
+                        <button class="btn btn-light btn-sm" onclick="location.reload()" title="Refresh">
+                            <i class="fas fa-sync-alt me-1"></i>Refresh
                         </button>
                     </div>
                 </div>
-                {% endfor %}
             </div>
-        </div>
-    </div>
+            <div class="card-body">
+                <!-- Enhanced Search and Filters -->
+                <div class="row mb-4">
+                    <div class="col-md-8">
+                        <div class="input-group">
+                            <span class="input-group-text bg-light">
+                                <i class="fas fa-search text-muted"></i>
+                            </span>
+                            <input type="text" class="form-control" id="searchOrders" placeholder="Search by name, email, UUID, or referral..." style="border-left: none;">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="d-flex gap-2">
+                            <select class="form-select form-select-sm" id="filterStatus">
+                                <option value="">All Statuses</option>
+                                <option value="Pending">🕐 Pending</option>
+                                <option value="Verified">✅ Verified</option>
+                                <option value="Flagged">⚠️ Flagged</option>
+                                <option value="Completed">🏁 Completed</option>
+                                <option value="Rejected">❌ Rejected</option>
+                            </select>
+                            <select class="form-select form-select-sm" id="filterWave">
+                                <option value="">All Waves</option>
+                                <option value="1">Wave 1</option>
+                                <option value="2">Wave 2</option>
+                                <option value="3">Wave 3</option>
+                            </select>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()" title="Clear Filters">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
-    <!-- Verified Column -->
-    <div class="col-md-3">
-        <div class="kanban-column">
-            <div class="kanban-header bg-success text-white">
-                <h5 class="mb-0">
-                    <i class="fas fa-check-circle me-2"></i>Verified ({{ verified|length }})
-                </h5>
-            </div>
-            <div class="kanban-content">
-                {% for order in verified %}
-                <div class="order-card status-verified">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <strong>{{ order[2] }}</strong>
-                        <small class="text-muted">{{ order[14].split(' ')[0] }}</small>
+                <!-- Quick Stats -->
+                <div class="row mb-3">
+                    <div class="col-md-2">
+                        <div class="card bg-warning text-white text-center py-2">
+                            <small class="d-block">Pending</small>
+                            <strong>{{ pending|length }}</strong>
+                        </div>
                     </div>
-                    <div class="mb-2">
-                        <small class="text-muted">{{ order[3] }}</small><br>
-                        <small class="text-muted">Brother Referral: {{ order[4] or 'None' }}</small>
+                    <div class="col-md-2">
+                        <div class="card bg-success text-white text-center py-2">
+                            <small class="d-block">Verified</small>
+                            <strong>{{ verified|length }}</strong>
+                        </div>
                     </div>
-                    <div class="mb-2">
-                        <span class="badge bg-primary">{{ order[5] }} Boys</span>
-                        <span class="badge bg-info">{{ order[6] }} Girls</span>
+                    <div class="col-md-2">
+                        <div class="card bg-danger text-white text-center py-2">
+                            <small class="d-block">Flagged</small>
+                            <strong>{{ flagged|length }}</strong>
+                        </div>
                     </div>
-                    <div class="mb-2">
-                        <strong>Expected: ${{ "%.2f"|format(order[8]) }}</strong><br>
-                        {% if order[9] %}
-                        <small>OCR: ${{ "%.2f"|format(order[9]) }}</small><br>
-                        {% endif %}
-                        {% if order[10] %}
-                        <small>Date: {{ order[10] }}</small><br>
-                        {% endif %}
-                        {% if order[11] %}
-                        <small>Payer: {{ order[11] }}</small>
-                        {% endif %}
+                    <div class="col-md-2">
+                        <div class="card bg-info text-white text-center py-2">
+                            <small class="d-block">Completed</small>
+                            <strong>{{ completed|length }}</strong>
+                        </div>
                     </div>
-                    {% if order[13] %}
-                    <img src="{{ url_for('serve_receipt', filename=order[13]) }}" class="receipt-thumbnail mb-2" alt="Receipt" onclick="openReceiptModal('{{ url_for('serve_receipt', filename=order[13]) }}')" style="cursor: pointer;" title="Click to view larger">
-                    {% endif %}
-                    <div class="btn-group btn-group-sm w-100">
-                        <button class="btn btn-outline-success" onclick="approveOrder({{ order[0] }})" title="Approve">
-                            <i class="fas fa-check"></i>
-                        </button>
-                        <button class="btn btn-outline-primary" onclick="editOrder({{ order[0] }})" title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-outline-dark" onclick="deleteOrder({{ order[0] }})" title="Delete">
-                            <i class="fas fa-trash"></i>
+                    <div class="col-md-4">
+                        <div class="card bg-light text-dark text-center py-2">
+                            <small class="d-block">Total Orders</small>
+                            <strong>{{ (pending + verified + flagged + completed)|length }}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Enhanced Table -->
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped">
+                        <thead class="table-dark">
+                            <tr>
+                                <th style="width: 60px;">ID</th>
+                                <th style="width: 200px;">Customer</th>
+                                <th style="width: 180px;">Email</th>
+                                <th style="width: 120px;">Referral</th>
+                                <th style="width: 120px;">Tickets</th>
+                                <th style="width: 100px;">Expected</th>
+                                <th style="width: 100px;">OCR Amount</th>
+                                <th style="width: 100px;">Status</th>
+                                <th style="width: 100px;">Date</th>
+                                <th style="width: 150px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in pending + verified + flagged + completed %}
+                            <tr class="{% if order[12] == 'Pending' %}table-warning{% elif order[12] == 'Verified' %}table-success{% elif order[12] == 'Flagged' %}table-danger{% elif order[12] == 'Completed' %}table-info{% endif %} hover-highlight">
+                                <td>
+                                    <span class="badge bg-secondary">#{{ order[0] }}</span>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-sm me-2">
+                                            <i class="fas fa-user-circle fa-lg text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <strong class="d-block">{{ order[2] }}</strong>
+                                            {% if order[13] %}
+                                            <small class="text-success"><i class="fas fa-receipt me-1"></i>Receipt</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ order[3] }}</small>
+                                </td>
+                                <td>
+                                    {% if order[4] %}
+                                    <span class="badge bg-light text-dark">{{ order[4] }}</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-column gap-1">
+                                        {% if order[5] > 0 %}
+                                        <span class="badge bg-primary">{{ order[5] }} Boys</span>
+                                        {% endif %}
+                                        {% if order[6] > 0 %}
+                                        <span class="badge bg-info">{{ order[6] }} Girls</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <strong class="text-success">${{ "%.2f"|format(order[8]) }}</strong>
+                                </td>
+                                <td>
+                                    {% if order[9] %}
+                                    <span class="text-primary">${{ "%.2f"|format(order[9]) }}</span>
+                                    {% else %}
+                                    <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge {% if order[12] == 'Pending' %}bg-warning{% elif order[12] == 'Verified' %}bg-success{% elif order[12] == 'Flagged' %}bg-danger{% elif order[12] == 'Completed' %}bg-info{% else %}bg-secondary{% endif %}">
+                                        {% if order[12] == 'Pending' %}🕐{% elif order[12] == 'Verified' %}✅{% elif order[12] == 'Flagged' %}⚠️{% elif order[12] == 'Completed' %}🏁{% endif %}
+                                        {{ order[12] }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ order[14].split(' ')[0] }}</small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        {% if order[12] == 'Pending' or order[12] == 'Flagged' %}
+                                        <button class="btn btn-success" onclick="approveOrder({{ order[0] }})" title="Approve Order">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button class="btn btn-danger" onclick="rejectOrder({{ order[0] }})" title="Reject Order">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                        {% endif %}
+                                        <button class="btn btn-primary" onclick="editOrder({{ order[0] }})" title="Edit Order">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-dark" onclick="deleteOrder({{ order[0] }})" title="Delete Order">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        {% if order[13] %}
+                                        <button class="btn btn-info" onclick="openReceiptModal('{{ url_for('serve_receipt', filename=order[13]) }}')" title="View Receipt">
+                                            <i class="fas fa-image"></i>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Empty State -->
+                {% if (pending + verified + flagged + completed)|length == 0 %}
+                <div class="text-center py-5">
+                    <div class="empty-state">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No Orders Found</h5>
+                        <p class="text-muted">Orders will appear here once customers start submitting.</p>
+                        <button class="btn btn-primary" onclick="location.reload()">
+                            <i class="fas fa-sync-alt me-2"></i>Refresh
                         </button>
                     </div>
                 </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-
-    <!-- Flagged Column -->
-    <div class="col-md-3">
-        <div class="kanban-column">
-            <div class="kanban-header bg-danger text-white">
-                <h5 class="mb-0">
-                    <i class="fas fa-exclamation-triangle me-2"></i>Flagged ({{ flagged|length }})
-                </h5>
-            </div>
-            <div class="kanban-content">
-                {% for order in flagged %}
-                <div class="order-card status-flagged">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <strong>{{ order[2] }}</strong>
-                        <small class="text-muted">{{ order[14].split(' ')[0] }}</small>
-                    </div>
-                    <div class="mb-2">
-                        <small class="text-muted">{{ order[3] }}</small><br>
-                        <small class="text-muted">Brother Referral: {{ order[4] or 'None' }}</small>
-                    </div>
-                    <div class="mb-2">
-                        <span class="badge bg-primary">{{ order[5] }} Boys</span>
-                        <span class="badge bg-info">{{ order[6] }} Girls</span>
-                    </div>
-                    <div class="mb-2">
-                        <strong>Expected: ${{ "%.2f"|format(order[8]) }}</strong><br>
-                        {% if order[9] %}
-                        <small>OCR: ${{ "%.2f"|format(order[9]) }}</small><br>
-                        {% endif %}
-                        {% if order[10] %}
-                        <small>Date: {{ order[10] }}</small><br>
-                        {% endif %}
-                        {% if order[11] %}
-                        <small>Payer: {{ order[11] }}</small>
-                        {% endif %}
-                    </div>
-                    {% if order[13] %}
-                    <img src="{{ url_for('serve_receipt', filename=order[13]) }}" class="receipt-thumbnail mb-2" alt="Receipt" onclick="openReceiptModal('{{ url_for('serve_receipt', filename=order[13]) }}')" style="cursor: pointer;" title="Click to view larger">
-                    {% endif %}
-                    <div class="btn-group btn-group-sm w-100">
-                        <button class="btn btn-outline-success" onclick="approveOrder({{ order[0] }})" title="Approve">
-                            <i class="fas fa-check"></i>
-                        </button>
-                        <button class="btn btn-outline-danger" onclick="rejectOrder({{ order[0] }})" title="Reject">
-                            <i class="fas fa-times"></i>
-                        </button>
-                        <button class="btn btn-outline-primary" onclick="editOrder({{ order[0] }})" title="Edit">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-outline-dark" onclick="deleteOrder({{ order[0] }})" title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-
-    <!-- Completed Column -->
-    <div class="col-md-3">
-        <div class="kanban-column">
-            <div class="kanban-header bg-info text-white">
-                <h5 class="mb-0">
-                    <i class="fas fa-check-double me-2"></i>Completed ({{ completed|length }})
-                </h5>
-            </div>
-            <div class="kanban-content">
-                {% for order in completed %}
-                <div class="order-card status-completed">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <strong>{{ order[2] }}</strong>
-                        <small class="text-muted">{{ order[14].split(' ')[0] }}</small>
-                    </div>
-                    <div class="mb-2">
-                        <small class="text-muted">{{ order[3] }}</small><br>
-                        <small class="text-muted">Brother Referral: {{ order[4] or 'None' }}</small>
-                    </div>
-                    <div class="mb-2">
-                        <span class="badge bg-primary">{{ order[5] }} Boys</span>
-                        <span class="badge bg-info">{{ order[6] }} Girls</span>
-                    </div>
-                    <div class="mb-2">
-                        <strong>Expected: ${{ "%.2f"|format(order[8]) }}</strong><br>
-                        {% if order[9] %}
-                        <small>OCR: ${{ "%.2f"|format(order[9]) }}</small><br>
-                        {% endif %}
-                        {% if order[10] %}
-                        <small>Date: {{ order[10] }}</small><br>
-                        {% endif %}
-                        {% if order[11] %}
-                        <small>Payer: {{ order[11] }}</small>
-                        {% endif %}
-                    </div>
-                    {% if order[13] %}
-                    <img src="{{ url_for('serve_receipt', filename=order[13]) }}" class="receipt-thumbnail mb-2" alt="Receipt" onclick="openReceiptModal('{{ url_for('serve_receipt', filename=order[13]) }}')" style="cursor: pointer;" title="Click to view larger">
-                    {% endif %}
-                    <div class="text-success">
-                        <i class="fas fa-check-circle"></i> Order Completed
-                    </div>
-                </div>
-                {% endfor %}
+                {% endif %}
             </div>
         </div>
     </div>
@@ -2011,6 +1972,46 @@ document.getElementById('editForm').addEventListener('submit', function(e) {
             .table-responsive td {
                 padding: 0.5rem 0.3rem;
             }
+        }
+        
+        /* Enhanced UI Styles */
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, var(--depsi-navy) 0%, var(--depsi-light-navy) 100%);
+        }
+        
+        .hover-highlight:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: all 0.2s ease;
+        }
+        
+        .avatar-sm {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .empty-state {
+            padding: 3rem 1rem;
+        }
+        
+        .table th {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.35em 0.65em;
+        }
+        
+        .btn-group-sm .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
         }
         
         /* Touch-friendly improvements */
