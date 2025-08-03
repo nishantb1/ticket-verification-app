@@ -42,15 +42,26 @@ def get_db_path():
     # Use environment variable for database path (for persistent storage on Render)
     db_path = os.environ.get('DATABASE_PATH', 'tickets.db')
     
-    # If it's just a filename, make it relative to the app directory
-    if not os.path.dirname(db_path):
+    # Log the database path for debugging
+    logger.info(f"Database path from environment: {db_path}")
+    logger.info(f"All environment variables: {dict(os.environ)}")
+    
+    # Check if we're on Render and use persistent disk
+    if os.path.exists('/var/data'):
+        logger.info("Render persistent disk detected at /var/data")
+        db_path = '/var/data/tickets.db'
+    elif not os.path.dirname(db_path):
+        # If it's just a filename, make it relative to the app directory
         db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), db_path)
+        logger.info(f"Database path resolved to: {db_path}")
     
     # Ensure the directory exists
     db_dir = os.path.dirname(db_path)
     if db_dir and not os.path.exists(db_dir):
         os.makedirs(db_dir, exist_ok=True)
+        logger.info(f"Created database directory: {db_dir}")
     
+    logger.info(f"Final database path: {db_path}")
     return db_path
 
 def allowed_file(filename):
@@ -407,10 +418,26 @@ def extract_text_from_image(image_path):
     """Extract text from image using OCR"""
     start_time = time.time()
     try:
-        # Check if Tesseract is available
-        try:
-            pytesseract.get_tesseract_version()
-        except pytesseract.TesseractNotFoundError:
+        # Try to find Tesseract in common locations
+        tesseract_paths = [
+            '/usr/bin/tesseract',
+            '/usr/local/bin/tesseract',
+            'tesseract'
+        ]
+        
+        tesseract_found = False
+        for path in tesseract_paths:
+            try:
+                pytesseract.pytesseract.tesseract_cmd = path
+                version = pytesseract.get_tesseract_version()
+                logger.info(f"Tesseract found at {path}, version: {version}")
+                tesseract_found = True
+                break
+            except Exception as e:
+                logger.debug(f"Tesseract not found at {path}: {e}")
+                continue
+        
+        if not tesseract_found:
             logger.error("Tesseract OCR not found. Please install Tesseract OCR engine.")
             return "OCR_NOT_AVAILABLE"
         
@@ -430,10 +457,26 @@ def extract_text_from_pdf(pdf_path):
     """Extract text from PDF using OCR"""
     start_time = time.time()
     try:
-        # Check if Tesseract and poppler are available
-        try:
-            pytesseract.get_tesseract_version()
-        except pytesseract.TesseractNotFoundError:
+        # Try to find Tesseract in common locations
+        tesseract_paths = [
+            '/usr/bin/tesseract',
+            '/usr/local/bin/tesseract',
+            'tesseract'
+        ]
+        
+        tesseract_found = False
+        for path in tesseract_paths:
+            try:
+                pytesseract.pytesseract.tesseract_cmd = path
+                version = pytesseract.get_tesseract_version()
+                logger.info(f"Tesseract found at {path}, version: {version}")
+                tesseract_found = True
+                break
+            except Exception as e:
+                logger.debug(f"Tesseract not found at {path}: {e}")
+                continue
+        
+        if not tesseract_found:
             logger.error("Tesseract OCR not found. Please install Tesseract OCR engine.")
             return "OCR_NOT_AVAILABLE"
         
