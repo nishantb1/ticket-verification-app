@@ -273,6 +273,44 @@ CREATE TABLE payment_transaction (
 
 
 
+## Cloud Storage (Cloudflare R2)
+
+This application now supports **Cloudflare R2** for persistent file storage, which is recommended for production deployments. R2 provides:
+
+- **Persistent storage** across deployments and restarts
+- **Scalable** file storage without size limits
+- **Cost-effective** with no egress fees
+- **Automatic fallback** to local storage if R2 is not configured
+
+### Setting up Cloudflare R2
+
+1. **Follow the detailed setup guide**: See [CLOUDFLARE_R2_SETUP.md](CLOUDFLARE_R2_SETUP.md) for complete instructions
+2. **Quick setup summary**:
+   - Create a Cloudflare account and enable R2
+   - Create an R2 bucket
+   - Generate access keys
+   - Set environment variables in your deployment platform
+
+3. **Required environment variables**:
+   ```
+   R2_ACCOUNT_ID=your_account_id
+   R2_BUCKET_NAME=your_bucket_name
+   R2_ACCESS_KEY_ID=your_access_key_id
+   R2_SECRET_ACCESS_KEY=your_secret_access_key
+   R2_ENDPOINT=https://your_account_id.r2.cloudflarestorage.com
+   ```
+
+4. **Test your setup**:
+   ```bash
+   python test_r2_connection.py
+   ```
+
+### Storage Behavior
+
+- **With R2 configured**: All uploaded files (receipts, CSV files) are stored in R2
+- **Without R2**: Application falls back to local storage automatically
+- **Hybrid support**: Can access both R2 and local files seamlessly
+
 ## Deployment
 
 ### Heroku Deployment

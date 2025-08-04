@@ -17,6 +17,7 @@ from functools import wraps
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from logging_config import setup_logging, get_logger, log_order_submission, log_ocr_processing, log_csv_upload, log_admin_action, log_error, log_performance
+from storage_service import get_storage_service, upload_receipt, upload_csv, get_file_path, cleanup_temp_file
 
 # Setup logging
 logger = setup_logging()
@@ -972,15 +973,29 @@ def submit_order():
             file = request.files['receipt']
             if file and allowed_file(file.filename):
                 filename = secure_filename(f"{order_uuid}_{file.filename}")
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(filepath)
-                receipt_path = filename  # Store only the filename, not the full path
+                
+                # Upload to R2 or local storage
+                success, storage_path = upload_receipt(file, filename)
+                if success:
+                    receipt_path = storage_path
+                else:
+                    flash('Failed to upload receipt file', 'error')
+                    return redirect(url_for('index'))
                 
                 # Perform OCR
-                if filename.lower().endswith('.pdf'):
-                    ocr_text = extract_text_from_pdf(filepath)
+                local_filepath = get_file_path(receipt_path)
+                if local_filepath:
+                    if filename.lower().endswith('.pdf'):
+                        ocr_text = extract_text_from_pdf(local_filepath)
+                    else:
+                        ocr_text = extract_text_from_image(local_filepath)
+                    
+                    # Clean up temporary file if it was downloaded from R2
+                    if local_filepath.startswith('/tmp/'):
+                        cleanup_temp_file(local_filepath)
                 else:
-                    ocr_text = extract_text_from_image(filepath)
+                    ocr_text = "FILE_NOT_ACCESSIBLE"
+                    logger.error(f"Could not access uploaded file: {receipt_path}")
                 
                 # Handle OCR dependency issues
                 if ocr_text in ["OCR_NOT_AVAILABLE", "PDF_CONVERSION_FAILED"]:
@@ -1264,12 +1279,23 @@ def upload_csv():
         stored_filename = f"{timestamp}_{original_filename}"
         file_path = os.path.join(csv_uploads_dir, stored_filename)
         
-        # Save the CSV file
-        file.save(file_path)
-        file_size = os.path.getsize(file_path)
+        # Upload CSV to R2 or local storage
+        file.seek(0)  # Reset file pointer
+        success, storage_path = upload_csv(file, stored_filename)
+        if not success:
+            flash('Failed to upload CSV file', 'error')
+            return redirect(url_for('admin_dashboard'))
+        
+        # Get local file path for processing
+        local_file_path = get_file_path(storage_path)
+        if not local_file_path:
+            flash('Failed to access uploaded CSV file', 'error')
+            return redirect(url_for('admin_dashboard'))
+        
+        file_size = os.path.getsize(local_file_path) if os.path.exists(local_file_path) else 0
         
         # Read CSV content for parsing
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(local_file_path, 'r', encoding='utf-8') as f:
             csv_content = f.read()
         
         # Detect CSV format
@@ -1372,7 +1398,7 @@ def upload_csv():
             (filename, original_filename, file_size, upload_type, records_processed, new_records, updated_records, admin_user)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
-            stored_filename,
+            storage_path,  # Store the R2 key or local filename
             original_filename,
             file_size,
             upload_type,
@@ -1381,6 +1407,10 @@ def upload_csv():
             updated_records,
             session.get('admin_username', 'Unknown')
         ))
+        
+        # Clean up temporary file if it was downloaded from R2
+        if local_file_path.startswith('/tmp/'):
+            cleanup_temp_file(local_file_path)
         
         conn.commit()
         conn.close()
@@ -1707,14 +1737,32 @@ def favicon():
 
 @app.route('/receipt/<path:filename>')
 def serve_receipt(filename):
-    """Serve uploaded receipt files"""
+    """Serve uploaded receipt files from R2 or local storage"""
     try:
-        # Clean the filename (remove any path components)
-        filename = os.path.basename(filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        return send_file(filepath)
+        # Clean the filename (remove any path components for security)
+        clean_filename = os.path.basename(filename)
+        
+        # Get file path (downloads from R2 if needed)
+        local_filepath = get_file_path(filename)
+        if not local_filepath:
+            return "Receipt not found", 404
+        
+        # Serve the file
+        response = send_file(local_filepath)
+        
+        # Clean up temporary file if it was downloaded from R2
+        if local_filepath.startswith('/tmp/'):
+            # Schedule cleanup after response is sent
+            @response.call_on_close
+            def cleanup():
+                cleanup_temp_file(local_filepath)
+        
+        return response
     except FileNotFoundError:
         return "Receipt not found", 404
+    except Exception as e:
+        logger.error(f"Error serving receipt {filename}: {e}")
+        return "Error accessing receipt", 500
 
 @app.route('/analytics')
 @login_required

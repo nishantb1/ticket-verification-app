@@ -161,4 +161,7 @@ dmypy.json
 # Uploads and temporary files
 uploads/
 temp/
-tmp/ 
+tmp/
+
+# R2 Storage configuration (local development)
+.env 
